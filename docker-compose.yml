@@ -1,0 +1,36 @@
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    ports:
+      # Sadece localhost'a aç — VPS'te dışarı açılmasın.
+      # Makinede başka bir Postgres varsa POSTGRES_PORT ile çakışmayı çöz.
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+
+  app:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./data:/app/data
+      - ./secrets:/app/secrets
+    ports:
+      - "127.0.0.1:${PANEL_PORT:-8000}:${PANEL_PORT:-8000}"
+    command: uvicorn app.main:app --host ${PANEL_HOST:-0.0.0.0} --port ${PANEL_PORT:-8000}
+
+volumes:
+  pgdata:

@@ -1,0 +1,110 @@
+# Takip edilecek şirketler.
+#
+# Zorunlu alanlar sadece `name` ve `domain`. Hangi ATS'i kullandıklarını
+# bilmene gerek yok — `jobradar probe` komutu ağ üzerinden deneyerek bulur
+# ve kaydeder (LLM kullanmadan).
+#
+# Biliyorsan doğrudan yazabilirsin, o zaman probe atlanır:
+#   - name: Örnek A.Ş.
+#     domain: ornek.com
+#     adapter_type: greenhouse        # greenhouse|lever|ashby|workable|recruitee|personio|smartrecruiters
+#     adapter_config: { token: ornek }
+#
+# Kariyer sayfası URL'sini biliyorsan onu yazmak da yeterli — URL deseninden
+# ATS tanınabiliyorsa hiç ağ isteği yapılmaz:
+#   - name: Örnek A.Ş.
+#     domain: ornek.com
+#     careers_url: https://jobs.lever.co/ornek
+
+companies:
+  # --- Buraya kendi hedef şirketlerini ekle (30-50 tane hedefliyoruz) ---
+  # Aşağıdakiler yalnızca biçim örneğidir; `probe` çalıştırıldığında
+  # hangilerinin desteklenen bir ATS kullandığı ampirik olarak belirlenir.
+  # Desteklenen ATS bulunmayanlar Faz 2/3'te JSON-LD veya LLM katmanına düşer.
+
+  - name: Trendyol
+    domain: trendyol.com
+
+  - name: Getir
+    domain: getir.com
+
+  - name: Insider
+    domain: useinsider.com
+
+  - name: Hepsiburada
+    domain: hepsiburada.com
+
+  - name: Peak
+    domain: peak.com
+
+  - name: Dream Games
+    domain: dreamgames.com
+
+  - name: Papara
+    domain: papara.com
+
+  - name: iyzico
+    domain: iyzico.com
+
+  - name: Param
+    domain: param.com.tr
+
+  - name: Logo Yazılım
+    domain: logo.com.tr
+
+  # --- CV odaklı .NET hedefleri (17 Ağustos 2026'da doğrulandı) ---
+  - name: NextLua
+    domain: nextlua.com
+    careers_url: https://www.nextlua.com/tr/careers/dotnet-senior-lead-developer
+    adapter_type: llm
+    adapter_config:
+      url: https://www.nextlua.com/tr/careers/dotnet-senior-lead-developer
+
+  - name: Add HR
+    domain: addhr.talentics.app
+    careers_url: https://addhr.talentics.app/jobs/cf633fc7-3528-4885-a983-e53a290288a1
+    adapter_type: llm
+    adapter_config:
+      url: https://addhr.talentics.app/jobs/cf633fc7-3528-4885-a983-e53a290288a1
+
+  - name: Padran
+    domain: padran.talentics.app
+    careers_url: https://padran.talentics.app/jobs/e34145c8-8426-47cd-8b8a-83ae7e76567e
+    adapter_type: llm
+    adapter_config:
+      url: https://padran.talentics.app/jobs/e34145c8-8426-47cd-8b8a-83ae7e76567e
+
+  - name: Sade Yazılım
+    domain: sade-yazilim.talentics.app
+    careers_url: https://sade-yazilim.talentics.app/jobs/9265be58-7206-41ee-8d86-e643fec1cad9
+    adapter_type: llm
+    adapter_config:
+      url: https://sade-yazilim.talentics.app/jobs/9265be58-7206-41ee-8d86-e643fec1cad9
+
+  - name: Amaris Consulting
+    domain: careers.amaris.com
+    careers_url: https://careers.amaris.com/jobs/44387
+    adapter_type: llm
+    adapter_config:
+      url: https://careers.amaris.com/jobs/44387
+
+  - name: CRENNO
+    domain: crenno.com
+    careers_url: https://jobs.smartrecruiters.com/CRENNO
+    adapter_type: smartrecruiters
+    adapter_config:
+      company: CRENNO
+
+  - name: EPAM Türkiye
+    domain: careers.epam.com
+    careers_url: https://careers.epam.com/en/vacancy/blteyrgixvzs2sc7xds?country=Turkiye
+    adapter_type: llm
+    adapter_config:
+      url: https://careers.epam.com/en/vacancy/blteyrgixvzs2sc7xds?country=Turkiye
+
+  - name: Farmazon
+    domain: farmazon.talentics.app
+    careers_url: https://farmazon.talentics.app/
+    adapter_type: llm
+    adapter_config:
+      url: https://farmazon.talentics.app/

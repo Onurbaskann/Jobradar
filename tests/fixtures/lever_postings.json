@@ -1,0 +1,25 @@
+[
+  {
+    "id": "abc-123-def",
+    "text": "Frontend Developer",
+    "hostedUrl": "https://jobs.lever.co/acme/abc-123-def",
+    "applyUrl": "https://jobs.lever.co/acme/abc-123-def/apply",
+    "createdAt": 1754049600000,
+    "workplaceType": "hybrid",
+    "categories": {
+      "commitment": "Full-time",
+      "location": "İstanbul",
+      "team": "Product",
+      "level": "Mid"
+    },
+    "descriptionPlain": "React ve TypeScript ile arayüz geliştireceksin.",
+    "description": "<p>React ve TypeScript ile arayüz geliştireceksin.</p>",
+    "lists": [
+      {
+        "text": "Aradıklarımız",
+        "content": "<ul><li>3+ yıl React</li><li>TypeScript</li></ul>"
+      }
+    ],
+    "additionalPlain": "Başvuru: kariyer@acme.com"
+  }
+]

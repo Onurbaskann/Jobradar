@@ -1,0 +1,1 @@
+"""Çok kaynaklı ilan keşfi."""

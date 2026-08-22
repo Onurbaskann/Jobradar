@@ -1,0 +1,4 @@
+interface:
+  display_name: "Jobradar Architecture"
+  short_description: "Keep Jobradar clean, reusable, and lean"
+  default_prompt: "Use $jobradar-architecture to implement this Jobradar change with SOLID boundaries and no overengineering."

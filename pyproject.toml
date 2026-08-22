@@ -1,0 +1,77 @@
+[project]
+name = "jobradar"
+version = "0.1.0"
+description = "Türkiye odaklı iş ilanı radarı ve başvuru asistanı"
+# JobSpy 1.1.82, NumPy 1.26.x'e sabitlenmiş durumda; bu sürüm Python 3.14'ü
+# desteklemiyor. Yerel geliştirme ve Docker aynı Python minör sürümünü kullansın.
+requires-python = ">=3.12,<3.13"
+
+dependencies = [
+    # web + panel
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "jinja2>=3.1",
+    "python-multipart>=0.0.12",
+    # db
+    "sqlmodel>=0.0.22",
+    "psycopg[binary]>=3.2",
+    "alembic>=1.14",
+    "pgvector>=0.3.6",
+    # fetch + parse
+    "httpx>=0.28",
+    "selectolax>=0.3.21",
+    "trafilatura>=2.0",
+    "extruct>=0.18",
+    "lxml>=5.3",
+    # scheduling / config
+    "apscheduler>=3.11",
+    "pydantic-settings>=2.6",
+    "pyyaml>=6.0",
+    "typer>=0.15",
+    "rich>=13.9",
+    # agents
+    "anthropic>=0.69",
+    # profile
+    "pypdf>=5.1",
+    "python-docx>=1.1",
+    # delivery
+    "google-api-python-client>=2.150",
+    "google-auth-oauthlib>=1.2",
+]
+
+[project.optional-dependencies]
+# Çoklu portal keşfi çekirdek ATS taramasından bağımsız kurulabilsin.
+discovery = ["python-jobspy==1.1.82"]
+# torch ~2GB çeker ve yalnızca eşleştirme adımında gerekir — tarayıcı onsuz çalışır
+embeddings = ["sentence-transformers>=3.3"]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "respx>=0.22",
+    "ruff>=0.8",
+]
+
+[project.scripts]
+jobradar = "app.cli:app"
+
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+
+[tool.ruff.lint.per-file-ignores]
+# FastAPI'de Depends()/Query() argüman varsayılanında çağrılır — çerçevenin deyimi
+"app/main.py" = ["B008"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
