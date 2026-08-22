@@ -18,7 +18,7 @@ Her şirket bir kez adaptöre bağlanır, sonra hep aynı ucuz yoldan taranır.
 ## Kurulum
 
 ```bash
-cp .env.example .env        # POSTGRES_PASSWORD ve ANTHROPIC_API_KEY'i doldur
+cp .env.example .env        # POSTGRES_PASSWORD ve kullanacağın API anahtarlarını doldur
 docker compose up -d db
 docker compose run --rm app jobradar init-db
 ```
@@ -35,9 +35,21 @@ docker compose exec app jobradar init-db
 ```
 
 Arayüz `http://localhost:8000` adresindedir. Burada arama profili oluşturabilir,
-JobSpy ve takip edilen şirket kaynaklarını birlikte taratabilir, bulunan ilanları
-yeni / kısa liste / elenen durumlarında yönetebilirsin. JobSpy bağımlılığı
-Docker'ın Python 3.12 imajında kurulur.
+JobSpy, takip edilen şirketler ve Türkiye portal aramasını birlikte taratabilir;
+bulunan ilanları yeni / kısa liste / elenen durumlarında yönetebilirsin. JobSpy
+bağımlılığı Docker'ın Python 3.12 imajında kurulur.
+
+Kariyer.net, Secretcv ve Yenibiriş sonuçları portalları doğrudan kazımadan,
+Brave Search API'nin resmi web arama ucu üzerinden bulunur. Bu isteğe bağlı
+kaynak için [Brave Search API panelinden](https://api-dashboard.search.brave.com/)
+bir anahtar oluşturup `.env` dosyasına ekle:
+
+```bash
+BRAVE_SEARCH_API_KEY=...
+```
+
+Anahtar tanımlı değilse yalnızca `turkiye_web` kaynağı hata verir; takip edilen
+şirketler ve JobSpy taraması çalışmaya devam eder.
 
 ## Kullanım
 
@@ -142,7 +154,7 @@ tarayıcı) gerekir; bu henüz kapsam dışı ve ayrı bir karar.
 | 4 | CV profili ve eşleştirme | ⏳ |
 | 5–6 | Onay paneli ve gönderim | ⏳ |
 | 7 | JobSpy keşfi, arama profilleri ve React ilan kutusu | ✅ ilk dikey dilim hazır |
-| 8 | Türkiye'ye özel portal arama adaptörleri ve deploy | ⏳ |
+| 8 | Türkiye'ye özel portal arama adaptörleri ve deploy | ⚠️ adaptör hazır, canlı anahtar doğrulaması ve deploy bekliyor |
 
 Faz 3'ün mantığı (budama, şema eşleme, doğrulama, maliyet kapısı) taklit
 istemcilerle test ediliyor; istek biçimi de gerçek SDK'ya karşı doğrulandı.

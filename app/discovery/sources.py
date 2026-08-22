@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 import asyncio
+import html
+import re
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import unquote, urlparse
 
+import httpx
 from sqlmodel import Session, col, select
 
 from app.discovery.contracts import DiscoveredJob, SearchQuery
@@ -81,6 +85,64 @@ class JobSpySource:
         return [map_jobspy_row(row) for row in frame.to_dict(orient="records")]
 
 
+TURKIYE_PORTALS = {
+    "kariyer.net": "Kariyer.net",
+    "secretcv.com": "Secretcv",
+    "yenibiris.com": "Yenibiriş",
+}
+
+
+class TurkiyeWebSource:
+    """Türkiye portallarındaki ilanları resmi Brave Search API üzerinden bulur."""
+
+    name = "turkiye_web"
+    endpoint = "https://api.search.brave.com/res/v1/web/search"
+
+    def __init__(self, api_key: str, timeout: float = 20.0) -> None:
+        self._api_key = api_key.strip()
+        self._timeout = timeout
+
+    async def discover(self, query: SearchQuery) -> list[DiscoveredJob]:
+        if not self._api_key:
+            raise SourceUnavailable(
+                "Türkiye portal araması için BRAVE_SEARCH_API_KEY tanımlanmalı"
+            )
+
+        term = " ".join(query.term.split()[:30])
+        sites = " OR ".join(f"site:{domain}" for domain in TURKIYE_PORTALS)
+        remote_term = " uzaktan" if query.remote_only else ""
+        params = {
+            "q": f'{term} "{query.location}"{remote_term} ({sites})',
+            "country": "TR",
+            "search_lang": "tr",
+            "count": min(query.results_wanted, 20),
+            "freshness": _brave_freshness(query.hours_old),
+        }
+        async with httpx.AsyncClient(timeout=self._timeout) as client:
+            response = await client.get(
+                self.endpoint,
+                params=params,
+                headers={
+                    "Accept": "application/json",
+                    "X-Subscription-Token": self._api_key,
+                },
+            )
+            response.raise_for_status()
+
+        results = response.json().get("web", {}).get("results", [])
+        jobs = [
+            map_turkiye_web_result(item, query.location)
+            for item in results
+            if isinstance(item, dict)
+        ]
+        discovered = [job for job in jobs if job is not None]
+        if query.remote_only:
+            discovered = [
+                job for job in discovered if job.remote_type is RemoteType.REMOTE
+            ]
+        return discovered[: query.results_wanted]
+
+
 def map_jobspy_row(row: dict[str, Any]) -> DiscoveredJob:
     remote = RemoteType.REMOTE if _clean(row.get("is_remote")) is True else RemoteType.UNKNOWN
     posted_at = _as_datetime(row.get("date_posted"))
@@ -99,8 +161,83 @@ def map_jobspy_row(row: dict[str, Any]) -> DiscoveredJob:
     )
 
 
+def map_turkiye_web_result(
+    result: dict[str, Any], location: str = "Türkiye"
+) -> DiscoveredJob | None:
+    url = str(_clean(result.get("url")) or "").strip()
+    portal = _portal_for_url(url)
+    if portal is None:
+        return None
+
+    raw_title = html.unescape(str(_clean(result.get("title")) or "")).strip()
+    description = html.unescape(str(_clean(result.get("description")) or "")).strip()
+    title = _job_title(raw_title, url, portal)
+    company = _company_name(raw_title, portal)
+    searchable = f"{title} {description}".casefold()
+    remote = (
+        RemoteType.REMOTE
+        if any(term in searchable for term in ("remote", "uzaktan", "home office"))
+        else RemoteType.UNKNOWN
+    )
+    domain = next(domain for domain, name in TURKIYE_PORTALS.items() if name == portal)
+    return DiscoveredJob(
+        source=f"web:{domain}",
+        title=title,
+        company_name=company,
+        location=location,
+        remote_type=remote,
+        description_md=description,
+        apply_url=url,
+    )
+
+
 def _search_terms(value: str) -> list[str]:
     return [part.casefold() for part in value.replace('"', " ").split() if len(part) > 1]
+
+
+def _portal_for_url(url: str) -> str | None:
+    host = (urlparse(url).hostname or "").casefold()
+    for domain, name in TURKIYE_PORTALS.items():
+        if host == domain or host.endswith(f".{domain}"):
+            return name
+    return None
+
+
+def _job_title(raw_title: str, url: str, portal: str) -> str:
+    path_parts = [part for part in urlparse(url).path.split("/") if part]
+    if portal == "Yenibiriş" and "is-ilani" in path_parts:
+        index = path_parts.index("is-ilani")
+        if len(path_parts) > index + 1:
+            slug = unquote(path_parts[index + 1]).replace("-", " ").strip()
+            if slug:
+                return re.sub(r"\bNet\b", ".NET", slug.title())
+
+    cleaned = re.sub(
+        r"\s*[-|]\s*(Kariyer\.net|Secretcv|Yenibiriş|Yenibiris\.com)\s*$",
+        "",
+        raw_title,
+        flags=re.IGNORECASE,
+    )
+    cleaned = re.sub(r"\s+İş İlanlar[ıi]\s*$", "", cleaned, flags=re.IGNORECASE)
+    return cleaned.strip(" -|") or "Başlıksız ilan"
+
+
+def _company_name(raw_title: str, portal: str) -> str:
+    if portal == "Yenibiriş" and " - " in raw_title:
+        company = raw_title.split(" - ", maxsplit=1)[0].strip()
+        if company:
+            return company
+    return portal
+
+
+def _brave_freshness(hours_old: int) -> str:
+    if hours_old <= 24:
+        return "pd"
+    if hours_old <= 24 * 7:
+        return "pw"
+    if hours_old <= 24 * 31:
+        return "pm"
+    return "py"
 
 
 def _clean(value: Any) -> Any | None:

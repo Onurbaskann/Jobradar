@@ -263,7 +263,8 @@ class SearchProfile(SQLModel, table=True):
     hours_old: int = 168
     results_wanted: int = 30
     sources: list[str] = Field(
-        default_factory=lambda: ["tracked", "jobspy"], sa_column=Column(JSONB)
+        default_factory=lambda: ["tracked", "jobspy", "turkiye_web"],
+        sa_column=Column(JSONB),
     )
     active: bool = True
     created_at: datetime = Field(default_factory=utcnow)
