@@ -6,9 +6,10 @@ import unicodedata
 
 from sqlmodel import Session, select
 
+from app.config import get_settings
 from app.db import get_engine
 from app.discovery.contracts import DiscoveredJob, JobSource, SearchQuery
-from app.discovery.sources import JobSpySource, TrackedJobsSource
+from app.discovery.sources import JobSpySource, TrackedJobsSource, TurkiyeWebSource
 from app.models import (
     DiscoveryRun,
     DiscoveryRunStatus,
@@ -123,6 +124,14 @@ def _build_sources(names: list[str], session: Session) -> tuple[list[JobSource],
             sources.append(TrackedJobsSource(session))
         elif name == "jobspy":
             sources.append(JobSpySource())
+        elif name == "turkiye_web":
+            settings = get_settings()
+            sources.append(
+                TurkiyeWebSource(
+                    api_key=settings.brave_search_api_key,
+                    timeout=settings.crawl_timeout,
+                )
+            )
         else:
             unknown.append(name)
     return sources, unknown

@@ -100,6 +100,21 @@ export function App() {
     }
   }
 
+  async function enableProfileSource(profileId: number, source: string) {
+    const profile = profiles.find((item) => item.id === profileId);
+    const currentSources = profile?.sources ?? [];
+    if (!profile || currentSources.includes(source)) return;
+    try {
+      setError(null);
+      const updated = await api.setProfileSources(profileId, [...currentSources, source]);
+      setProfiles((current) =>
+        current.map((item) => (item.id === updated.id ? updated : item)),
+      );
+    } catch (cause) {
+      setError(messageOf(cause));
+    }
+  }
+
   async function changeLeadStatus(leadId: number, status: JobLead["status"]) {
     try {
       const updated = await api.setLeadStatus(leadId, status);
@@ -159,6 +174,7 @@ export function App() {
           loading={loading}
           onCreateProfile={createProfile}
           onSelectProfile={changeProfile}
+          onEnableSource={enableProfileSource}
           onStart={startDiscovery}
         />
         <JobInbox leads={leads} loading={loading} onStatusChange={changeLeadStatus} />

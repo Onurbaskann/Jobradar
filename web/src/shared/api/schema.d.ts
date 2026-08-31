@@ -22,6 +22,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/discovery/profiles/{profile_id}/sources": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Update Profile Sources */
+        patch: operations["update_profile_sources_api_discovery_profiles__profile_id__sources_patch"];
+        trace?: never;
+    };
     "/api/discovery/runs": {
         parameters: {
             query?: never;
@@ -250,6 +267,11 @@ export interface components {
             /** Sources */
             sources?: string[];
         };
+        /** ProfileSourcesUpdate */
+        ProfileSourcesUpdate: {
+            /** Sources */
+            sources: string[];
+        };
         /** ProfileView */
         ProfileView: {
             /** Name */
@@ -387,6 +409,41 @@ export interface operations {
         responses: {
             /** @description Successful Response */
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProfileView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    update_profile_sources_api_discovery_profiles__profile_id__sources_patch: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                profile_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProfileSourcesUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

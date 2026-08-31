@@ -32,7 +32,9 @@ class ProfileCreate(BaseModel):
     remote_only: bool = False
     hours_old: int = PydanticField(default=168, ge=1, le=24 * 30)
     results_wanted: int = PydanticField(default=30, ge=1, le=100)
-    sources: list[str] = PydanticField(default_factory=lambda: ["tracked", "jobspy"])
+    sources: list[str] = PydanticField(
+        default_factory=lambda: ["tracked", "jobspy", "turkiye_web"]
+    )
 
 
 class ProfileView(ProfileCreate):
@@ -46,6 +48,10 @@ class ProfileView(ProfileCreate):
 
 class RunCreate(BaseModel):
     profile_id: int
+
+
+class ProfileSourcesUpdate(BaseModel):
+    sources: list[str] = PydanticField(min_length=1)
 
 
 class RunView(BaseModel):
@@ -101,6 +107,26 @@ def add_profile(payload: ProfileCreate, session: SessionDep) -> SearchProfile:
     if existing is not None:
         raise HTTPException(status_code=409, detail="Bu isimde bir arama profili zaten var")
     profile = SearchProfile(**payload.model_dump())
+    session.add(profile)
+    session.commit()
+    session.refresh(profile)
+    return profile
+
+
+@router.patch(
+    "/discovery/profiles/{profile_id}/sources",
+    response_model=ProfileView,
+)
+def update_profile_sources(
+    profile_id: int,
+    payload: ProfileSourcesUpdate,
+    session: SessionDep,
+) -> SearchProfile:
+    profile = session.get(SearchProfile, profile_id)
+    if profile is None:
+        raise HTTPException(status_code=404, detail="Arama profili bulunamadı")
+    profile.sources = list(dict.fromkeys(payload.sources))
+    profile.updated_at = utcnow()
     session.add(profile)
     session.commit()
     session.refresh(profile)

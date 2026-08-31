@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg://jobradar:jobradar@localhost:5432/jobradar"
 
     anthropic_api_key: str = ""
+    brave_search_api_key: str = ""
 
     # Model adı sağlayıcıyı da belirler:
     #   claude-haiku-4-5  → Anthropic API

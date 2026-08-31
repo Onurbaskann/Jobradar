@@ -11,6 +11,7 @@ interface DiscoveryPanelProps {
   loading: boolean;
   onCreateProfile: (profile: ProfileCreate) => Promise<void>;
   onSelectProfile: (profileId: number) => Promise<void>;
+  onEnableSource: (profileId: number, source: string) => Promise<void>;
   onStart: () => Promise<void>;
 }
 
@@ -21,7 +22,7 @@ const initialProfile: ProfileCreate = {
   remote_only: false,
   hours_old: 168,
   results_wanted: 30,
-  sources: ["tracked", "jobspy"],
+  sources: ["tracked", "jobspy", "turkiye_web"],
 };
 
 export function DiscoveryPanel({
@@ -31,11 +32,14 @@ export function DiscoveryPanel({
   loading,
   onCreateProfile,
   onSelectProfile,
+  onEnableSource,
   onStart,
 }: DiscoveryPanelProps) {
   const [draft, setDraft] = useState(initialProfile);
   const [saving, setSaving] = useState(false);
   const running = run?.status === "pending" || run?.status === "running";
+  const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
+  const selectedSources = selectedProfile?.sources ?? [];
 
   async function submit(event: FormEvent) {
     event.preventDefault();
@@ -67,12 +71,27 @@ export function DiscoveryPanel({
             <select id="profile" value={selectedProfileId ?? ""} onChange={(event) => void onSelectProfile(Number(event.target.value))}>
               {profiles.map((profile) => <option value={profile.id} key={profile.id}>{profile.name}</option>)}
             </select>
-            <p>{profiles.find((profile) => profile.id === selectedProfileId)?.query}</p>
+            <p>{selectedProfile?.query}</p>
           </div>
           <div className="source-lane">
-            <Source name="Takip edilen şirketler" detail="ATS ve şirket kariyer sayfaları" active />
-            <Source name="Türkiye iş portalları" detail="Indeed ve Google Jobs / JobSpy" active />
-            <Source name="Yerel portal araması" detail="Kariyer.net, Secretcv, Yenibiriş" />
+            <Source
+              name="Takip edilen şirketler"
+              detail="ATS ve şirket kariyer sayfaları"
+              active={selectedSources.includes("tracked")}
+              onEnable={selectedProfileId ? () => onEnableSource(selectedProfileId, "tracked") : undefined}
+            />
+            <Source
+              name="Türkiye iş portalları"
+              detail="Indeed ve Google Jobs / JobSpy"
+              active={selectedSources.includes("jobspy")}
+              onEnable={selectedProfileId ? () => onEnableSource(selectedProfileId, "jobspy") : undefined}
+            />
+            <Source
+              name="Yerel portal araması"
+              detail="Kariyer.net, Secretcv, Yenibiriş · Brave Search"
+              active={selectedSources.includes("turkiye_web")}
+              onEnable={selectedProfileId ? () => onEnableSource(selectedProfileId, "turkiye_web") : undefined}
+            />
           </div>
           <div className="run-action">
             <span>{run ? runSummary(run) : "Henüz keşif çalışması yok."}</span>
@@ -86,13 +105,42 @@ export function DiscoveryPanel({
   );
 }
 
-function Source({ name, detail, active = false }: { name: string; detail: string; active?: boolean }) {
-  return <div className={`source ${active ? "source--active" : ""}`}><span>{active ? "✓" : "·"}</span><div><strong>{name}</strong><small>{detail}</small></div>{!active && <em>yakında</em>}</div>;
+function Source({
+  name,
+  detail,
+  active = false,
+  onEnable,
+}: {
+  name: string;
+  detail: string;
+  active?: boolean;
+  onEnable?: () => Promise<void>;
+}) {
+  return (
+    <div className={`source ${active ? "source--active" : ""}`}>
+      <span>{active ? "✓" : "·"}</span>
+      <div><strong>{name}</strong><small>{detail}</small></div>
+      {!active && onEnable && (
+        <button type="button" className="source-action" onClick={() => void onEnable()}>
+          Etkinleştir
+        </button>
+      )}
+    </div>
+  );
 }
 
 function RunStatus({ run }: { run: DiscoveryRun }) {
-  const tone = run.status === "completed" ? "success" : run.status === "failed" ? "warning" : "info";
-  const label = { pending: "Sırada", running: "Taranıyor", completed: "Tamamlandı", failed: "Başarısız" }[run.status];
+  const tone = run.status === "completed" && !run.error
+    ? "success"
+    : run.status === "failed" || run.error ? "warning" : "info";
+  const label = run.status === "completed" && run.error
+    ? "Kısmen tamamlandı"
+    : {
+        pending: "Sırada",
+        running: "Taranıyor",
+        completed: "Tamamlandı",
+        failed: "Başarısız",
+      }[run.status];
   return <StatusPill tone={tone}>{label}</StatusPill>;
 }
 
@@ -100,5 +148,6 @@ function runSummary(run: DiscoveryRun) {
   if (run.status === "pending") return "Tarama başlamak üzere.";
   if (run.status === "running") return "Kaynaklar kontrol ediliyor; sonuçlar birazdan burada.";
   if (run.status === "failed") return run.error ?? "Tarama tamamlanamadı.";
-  return `${run.found_count} ilan bulundu, ${run.new_count} tanesi yeni.`;
+  const result = `${run.found_count} ilan bulundu, ${run.new_count} tanesi yeni.`;
+  return run.error ? `${result} ${run.error}` : result;
 }

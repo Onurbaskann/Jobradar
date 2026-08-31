@@ -27,6 +27,11 @@ export const api = {
       method: "POST",
       body: JSON.stringify(profile),
     }),
+  setProfileSources: (profileId: number, sources: string[]) =>
+    request<SearchProfile>(`/api/discovery/profiles/${profileId}/sources`, {
+      method: "PATCH",
+      body: JSON.stringify({ sources }),
+    }),
   latestRun: (profileId?: number) =>
     request<DiscoveryRun | null>(
       `/api/discovery/runs/latest${profileId ? `?profile_id=${profileId}` : ""}`,
