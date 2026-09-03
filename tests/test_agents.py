@@ -20,6 +20,7 @@ from app.agents.detect_ats import AtsDetection, detect_ats
 from app.agents.extract_jobs import ExtractedJob, ExtractionResult, extract_jobs, prune_html
 from app.models import AdapterType, ApplyChannel, RemoteType
 from app.net import HttpClient
+from app.web_search import WebSearchResult
 
 CAREERS_HTML = """
 <html><body>
@@ -47,6 +48,19 @@ def http() -> HttpClient:
 
 def _result(data):
     return AgentResult(data=data, input_tokens=100, output_tokens=50, cache_read_tokens=0)
+
+
+def _mock_search(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def search(_name: str, _domain: str) -> list[WebSearchResult]:
+        return [
+            WebSearchResult(
+                title="Acme Careers",
+                url="https://jobs.lever.co/acmeco",
+                description="Acme açık pozisyonları",
+            )
+        ]
+
+    monkeypatch.setattr(detect_mod, "_search_company", search)
 
 
 # --------------------------------------------------------------------- budama
@@ -152,6 +166,7 @@ async def test_detect_rejects_ats_suggestion_that_returns_no_jobs(
 ) -> None:
     """Asıl güvenlik özelliği: doğrulanamayan öneri kabul edilmemeli."""
     detection = AtsDetection(ats="greenhouse", slug="uydurma", confidence="high", evidence="—")
+    _mock_search(monkeypatch)
     monkeypatch.setattr(detect_mod, "call_structured", lambda **_: _result(detection))
 
     respx.get(url__regex=r".*").mock(return_value=httpx.Response(404))
@@ -167,13 +182,19 @@ async def test_detect_accepts_verified_ats_suggestion(
     http: HttpClient, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     detection = AtsDetection(
-        ats="lever",
-        slug="acmeco",
+        ats="none",
         careers_url="https://acme.com/kariyer",
         confidence="high",
-        evidence="jobs.lever.co/acmeco",
+        evidence="https://jobs.lever.co/acmeco",
     )
-    monkeypatch.setattr(detect_mod, "call_structured", lambda **_: _result(detection))
+    _mock_search(monkeypatch)
+    call_args = {}
+
+    def call(**kwargs):
+        call_args.update(kwargs)
+        return _result(detection)
+
+    monkeypatch.setattr(detect_mod, "call_structured", call)
 
     respx.get("https://api.lever.co/v0/postings/acmeco").mock(
         return_value=httpx.Response(
@@ -196,6 +217,8 @@ async def test_detect_accepts_verified_ats_suggestion(
     assert outcome is not None
     assert outcome.adapter_type is AdapterType.LEVER
     assert outcome.config == {"site": "acmeco"}
+    assert "https://jobs.lever.co/acmeco" in call_args["user_content"]
+    assert "tools" not in call_args
 
 
 @respx.mock
@@ -204,6 +227,7 @@ async def test_detect_falls_back_to_careers_page_structured_data(
 ) -> None:
     """ATS yoksa kariyer sayfasındaki JSON-LD kabul edilebilir bir sonuçtur."""
     detection = AtsDetection(ats="none", careers_url="https://acme.com/kariyer", evidence="—")
+    _mock_search(monkeypatch)
     monkeypatch.setattr(detect_mod, "call_structured", lambda **_: _result(detection))
 
     jsonld = """<script type="application/ld+json">

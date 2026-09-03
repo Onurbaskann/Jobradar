@@ -7,11 +7,11 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import unquote, urlparse
 
-import httpx
 from sqlmodel import Session, col, select
 
 from app.discovery.contracts import DiscoveredJob, SearchQuery
 from app.models import Company, JobPosting, RemoteType
+from app.web_search import BraveSearchClient, WebSearchError, WebSearchResult
 
 
 class SourceUnavailable(RuntimeError):
@@ -96,44 +96,26 @@ class TurkiyeWebSource:
     """Türkiye portallarındaki ilanları resmi Brave Search API üzerinden bulur."""
 
     name = "turkiye_web"
-    endpoint = "https://api.search.brave.com/res/v1/web/search"
+    endpoint = BraveSearchClient.endpoint
 
     def __init__(self, api_key: str, timeout: float = 20.0) -> None:
-        self._api_key = api_key.strip()
-        self._timeout = timeout
+        self._search = BraveSearchClient(api_key, timeout)
 
     async def discover(self, query: SearchQuery) -> list[DiscoveredJob]:
-        if not self._api_key:
-            raise SourceUnavailable(
-                "Türkiye portal araması için BRAVE_SEARCH_API_KEY tanımlanmalı"
-            )
-
         term = " ".join(query.term.split()[:30])
         sites = " OR ".join(f"site:{domain}" for domain in TURKIYE_PORTALS)
         remote_term = " uzaktan" if query.remote_only else ""
-        params = {
-            "q": f'{term} "{query.location}"{remote_term} ({sites})',
-            "country": "TR",
-            "search_lang": "tr",
-            "count": min(query.results_wanted, 20),
-            "freshness": _brave_freshness(query.hours_old),
-        }
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            response = await client.get(
-                self.endpoint,
-                params=params,
-                headers={
-                    "Accept": "application/json",
-                    "X-Subscription-Token": self._api_key,
-                },
+        try:
+            results = await self._search.search(
+                f'{term} "{query.location}"{remote_term} ({sites})',
+                count=query.results_wanted,
+                freshness=_brave_freshness(query.hours_old),
             )
-            response.raise_for_status()
-
-        results = response.json().get("web", {}).get("results", [])
+        except WebSearchError as exc:
+            raise SourceUnavailable(f"Türkiye portal araması kullanılamıyor: {exc}") from exc
         jobs = [
             map_turkiye_web_result(item, query.location)
             for item in results
-            if isinstance(item, dict)
         ]
         discovered = [job for job in jobs if job is not None]
         if query.remote_only:
@@ -162,15 +144,15 @@ def map_jobspy_row(row: dict[str, Any]) -> DiscoveredJob:
 
 
 def map_turkiye_web_result(
-    result: dict[str, Any], location: str = "Türkiye"
+    result: WebSearchResult, location: str = "Türkiye"
 ) -> DiscoveredJob | None:
-    url = str(_clean(result.get("url")) or "").strip()
+    url = result.url
     portal = _portal_for_url(url)
     if portal is None:
         return None
 
-    raw_title = html.unescape(str(_clean(result.get("title")) or "")).strip()
-    description = html.unescape(str(_clean(result.get("description")) or "")).strip()
+    raw_title = html.unescape(result.title).strip()
+    description = html.unescape(result.description).strip()
     title = _job_title(raw_title, url, portal)
     company = _company_name(raw_title, portal)
     searchable = f"{title} {description}".casefold()

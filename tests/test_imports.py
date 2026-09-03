@@ -23,6 +23,7 @@ MODULES = [
     "app.discovery.api",
     "app.discovery.service",
     "app.discovery.sources",
+    "app.web_search",
     "app.cli",
     "app.main",
     "app.pipeline.crawl",

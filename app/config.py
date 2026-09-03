@@ -12,12 +12,12 @@ class Settings(BaseSettings):
     brave_search_api_key: str = ""
 
     # Model adı sağlayıcıyı da belirler:
-    #   claude-haiku-4-5  → Anthropic API
-    #   ollama:qwen3:8b   → yerelde Ollama (ücretsiz, veri makineden çıkmaz)
-    model_detect: str = "claude-opus-5"
-    model_extract: str = "claude-haiku-4-5"
-    model_score: str = "claude-haiku-4-5"
-    model_tailor: str = "claude-opus-5"
+    # Varsayılan akış tamamen yereldir. İstenirse bir ajan için claude-... modeli
+    # seçilip `cloud` ek bağımlılığı kurulabilir.
+    model_detect: str = "ollama:qwen3:8b"
+    model_extract: str = "ollama:qwen3:8b"
+    model_score: str = "ollama:qwen3:8b"
+    model_tailor: str = "ollama:qwen3:8b"
 
     # "localhost" yerine 127.0.0.1: Windows'ta localhost önce IPv6'ya çözülür ve
     # yalnızca IPv4 dinleyen bir servise bağlanmak TCP zaman aşımı kadar sürer.

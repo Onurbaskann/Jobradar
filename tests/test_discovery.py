@@ -13,6 +13,7 @@ from app.discovery.sources import (
     map_turkiye_web_result,
 )
 from app.models import RemoteType
+from app.web_search import WebSearchResult
 
 
 def test_fingerprint_merges_source_formatting_differences() -> None:
@@ -61,14 +62,14 @@ def test_jobspy_row_maps_to_canonical_contract() -> None:
 
 def test_turkiye_web_result_maps_yenibiris_title_and_company() -> None:
     result = map_turkiye_web_result(
-        {
-            "title": (
+        WebSearchResult(
+            title=(
                 "ACME YAZILIM A.Ş. - İstanbul Senior .NET Developer "
                 "İş İlanları - Yenibiris.com"
             ),
-            "url": "https://www.yenibiris.com/is-ilani/senior-net-developer/12345",
-            "description": "Hibrit çalışma, C# ve ASP.NET Core",
-        },
+            url="https://www.yenibiris.com/is-ilani/senior-net-developer/12345",
+            description="Hibrit çalışma, C# ve ASP.NET Core",
+        ),
         "İstanbul",
     )
 
@@ -82,7 +83,7 @@ def test_turkiye_web_result_maps_yenibiris_title_and_company() -> None:
 def test_turkiye_web_result_rejects_unapproved_domain() -> None:
     assert (
         map_turkiye_web_result(
-            {"title": "Backend Developer", "url": "https://example.com/jobs/1"}
+            WebSearchResult("Backend Developer", "https://example.com/jobs/1")
         )
         is None
     )
