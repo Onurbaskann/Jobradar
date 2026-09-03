@@ -130,8 +130,8 @@ def set_careers(
 ) -> None:
     """Bir şirketin kariyer sayfasını elle bildir ve hangi katmanın işe yaradığını sına.
 
-    Kariyer sayfasının adresini biliyorsan LLM tespit ajanına (ve dolayısıyla
-    Anthropic API anahtarına) hiç ihtiyaç kalmaz. Sırayla denenir:
+    Kariyer sayfasının adresini biliyorsan Brave + LLM tespit adımına ihtiyaç
+    kalmaz. Sırayla denenir:
     ATS adresi mi → sayfada yapısal veri var mı → LLM çıkarımı iş görüyor mu.
     """
     asyncio.run(_set_careers(company, url))

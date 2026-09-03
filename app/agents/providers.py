@@ -2,12 +2,11 @@
 
 Sağlayıcı model adından anlaşılır — ayrı bir ayar yok:
 
-    MODEL_EXTRACT=claude-haiku-4-5      → Anthropic
-    MODEL_EXTRACT=ollama:qwen3:8b       → yerelde Ollama
+    MODEL_EXTRACT=ollama:qwen3:8b       → varsayılan, yerelde Ollama
+    MODEL_EXTRACT=claude-haiku-4-5      → isteğe bağlı Anthropic
 
-Böylece her ajan bağımsız seçilebilir. Tipik kullanım: yüksek hacimli ve
-mekanik işler (ilan çıkarımı, ön eleme) yerelde bedava, yazı kalitesi önemli
-olan tek iş (CV uyarlama) bulutta.
+Böylece her ajan bağımsız seçilebilir. Varsayılan akış bütünüyle yereldir;
+istenirse yalnız seçilen bir görev bulut sağlayıcısına geçirilebilir.
 
 İki sağlayıcı da **şemaya uyan** çıktı üretir; hiçbir ajan serbest metin
 ayrıştırmaz.
@@ -86,7 +85,12 @@ def call_anthropic[T: BaseModel](
     effort: str,
     tools: list[dict[str, Any]] | None,
 ) -> ProviderResponse:
-    import anthropic
+    try:
+        import anthropic
+    except ImportError as exc:
+        raise ProviderError(
+            'Anthropic sağlayıcısı için `pip install -e ".[cloud]"` çalıştır.'
+        ) from exc
 
     from app.agents.client import get_anthropic_client
 
@@ -138,9 +142,7 @@ def call_ollama[T: BaseModel](
     tools: list[dict[str, Any]] | None,
 ) -> ProviderResponse:
     if tools:
-        # Sunucu taraflı web arama/çekme yalnızca Anthropic tarafında var.
-        # Sessizce araçsız çalışmak, ajanın yapamayacağı bir işi yapıyormuş
-        # gibi görünmesine yol açardı.
+        # Sağlayıcıya özel araçlar yerel Ollama protokolüne geçirilemez.
         raise ProviderError("yerel model sunucu taraflı araçları (web arama/çekme) desteklemiyor")
 
     settings = get_settings()

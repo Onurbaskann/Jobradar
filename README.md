@@ -105,7 +105,7 @@ Model adı sağlayıcıyı belirler — ayrı bir ayar yok:
 
 ```bash
 MODEL_EXTRACT=ollama:qwen3:8b     # yerelde, ücretsiz
-MODEL_DETECT=claude-opus-5        # Anthropic API
+MODEL_DETECT=ollama:qwen3:8b      # Brave sonuçlarını yerelde yorumlar
 ```
 
 **qwen3:8b ile yapılan ölçüm** (doğru cevabı bilinen iki test):
@@ -122,9 +122,9 @@ Kalite tam isabet. Sınır hızda: bu makinede model **GPU değil CPU** kullanı
 Bu, arka planda çalışan bir tarayıcı için sorun değil — çıkarım zaten yalnızca
 sayfa gerçekten değiştiğinde yapılıyor.
 
-**Yerel modelin yapamadığı iş:** kariyer sayfası/ATS bulma. O ajan web araması
-kullanıyor; Ollama'da sunucu taraflı arama yok. Yerel model o role verilirse
-sessizce araçsız çalışmak yerine açık hata veriyor.
+Kariyer sayfası/ATS tespitinde web aramasını Brave yapar; sonuçları Qwen yerelde
+yorumlar. Modelin önerisi doğrudan kabul edilmez, ilgili ATS adaptörü gerçek ilan
+döndürmeden şirket kaynağı aktifleşmez.
 
 ## Türkiye'de ölçülen gerçek durum
 
@@ -150,16 +150,16 @@ tarayıcı) gerekir; bu henüz kapsam dışı ve ayrı bir karar.
 | 0 | İskelet, veri modeli, Docker | ✅ |
 | 1 | 7 ATS adaptörü, kanıtlı tespit, onay akışı | ✅ gerçek ilanlarla doğrulandı |
 | 2 | JSON-LD, sitemap, robots.txt, değişiklik tespiti | ✅ gerçek sitelerde ölçüldü |
-| 3 | LLM tespit + çıkarım ajanları | ⚠️ kod hazır, **canlı doğrulama API anahtarı bekliyor** |
+| 3 | Brave + yerel Qwen tespit ve çıkarım ajanları | ✅ Trendyol üzerinde canlı doğrulandı |
 | 4 | CV profili ve eşleştirme | ⏳ |
 | 5–6 | Onay paneli ve gönderim | ⏳ |
 | 7 | JobSpy keşfi, arama profilleri ve React ilan kutusu | ✅ ilk dikey dilim hazır |
-| 8 | Türkiye'ye özel portal arama adaptörleri ve deploy | ⚠️ adaptör hazır, canlı anahtar doğrulaması ve deploy bekliyor |
+| 8 | Türkiye'ye özel portal arama adaptörleri ve deploy | ⚠️ adaptör canlı doğrulandı, deploy bekliyor |
 
-Faz 3'ün mantığı (budama, şema eşleme, doğrulama, maliyet kapısı) taklit
-istemcilerle test ediliyor; istek biçimi de gerçek SDK'ya karşı doğrulandı.
-Doğrulanmayan tek şey modelin canlı yanıt kalitesi — bunun için
-`ANTHROPIC_API_KEY` gerekiyor.
+Faz 3'ün mantığı (budama, şema eşleme, doğrulama, maliyet kapısı) testlerle
+korunuyor. Varsayılan akış Brave Search ve yerel Ollama/Qwen kullanır;
+`ANTHROPIC_API_KEY` gerekmez. Anthropic sağlayıcısı yalnız isteğe bağlıdır ve
+`pip install -e ".[cloud]"` ile ayrıca kurulabilir.
 
 ## Geliştirme
 

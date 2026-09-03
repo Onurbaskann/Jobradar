@@ -29,8 +29,6 @@ dependencies = [
     "pyyaml>=6.0",
     "typer>=0.15",
     "rich>=13.9",
-    # agents
-    "anthropic>=0.69",
     # profile
     "pypdf>=5.1",
     "python-docx>=1.1",
@@ -40,6 +38,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Varsayılan akış yerel Ollama'dır; Anthropic yalnız açıkça seçilirse kurulur.
+cloud = ["anthropic>=0.69"]
 # Çoklu portal keşfi çekirdek ATS taramasından bağımsız kurulabilsin.
 discovery = ["python-jobspy==1.1.82"]
 # torch ~2GB çeker ve yalnızca eşleştirme adımında gerekir — tarayıcı onsuz çalışır
