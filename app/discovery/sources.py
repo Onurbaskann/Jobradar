@@ -78,7 +78,7 @@ class JobSpySource:
             country_indeed="Turkey",
             results_wanted=query.results_wanted,
             hours_old=query.hours_old,
-            is_remote=True if query.remote_only else None,
+            is_remote=query.remote_only,
             description_format="markdown",
             verbose=0,
         )
