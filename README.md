@@ -63,7 +63,7 @@ docker compose run --rm app jobradar probe
 # 3. Tahminle bulunanları onayla (aşağıdaki nota bak — bu adımı atlama)
 docker compose run --rm app jobradar review
 
-# 4. Hâlâ çözülemeyenler için LLM tespit ajanı (ücretli, şirket başına bir kez)
+# 4. Hâlâ çözülemeyenler için Brave + yerel Qwen tespit ajanı
 docker compose run --rm app jobradar detect
 
 # 5. Tara
@@ -75,10 +75,11 @@ docker compose run --rm app jobradar jobs --limit 30
 docker compose run --rm app jobradar usage      # ajan token harcaması
 ```
 
-`probe` ve `crawl` hiçbir LLM çağrısı yapmaz. Ücretli olan tek adım `detect`,
-ve o da şirket başına bir kez çalışır. Tarama sırasında LLM yalnızca L4
-adaptörüne düşmüş şirketlerde ve **yalnızca sayfanın ham imzası değiştiğinde**
-devreye girer.
+`probe` hiçbir LLM çağrısı yapmaz. `detect`, Brave sonuçlarını yerel Qwen ile
+yorumlar ve yalnız çözülemeyen şirketler için çalışır. Tarama sırasında LLM
+yalnızca L4 adaptörüne düşmüş şirketlerde ve **sayfanın ham imzası
+değiştiğinde** devreye girer. Varsayılan akışta bulut model ücreti yoktur;
+Brave hesabının API kotası kullanılır.
 
 ### Neden bir onay adımı var
 

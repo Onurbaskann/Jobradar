@@ -12,6 +12,7 @@ import type {
 } from "../shared/api/types";
 
 export function App() {
+  const today = new Date();
   const [profiles, setProfiles] = useState<SearchProfile[]>([]);
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
   const [run, setRun] = useState<DiscoveryRun | null>(null);
@@ -144,7 +145,12 @@ export function App() {
 
       <main id="top">
         <header className="topbar">
-          <div><span className="eyebrow">22 Ağustos 2026</span><h1>İş aramanın kontrolü sende.</h1></div>
+          <div>
+            <time className="eyebrow" dateTime={formatIsoDate(today)}>
+              {formatFullDate(today)}
+            </time>
+            <h1>İş aramanın kontrolü sende.</h1>
+          </div>
           <div className="system-state"><span className="live-dot" /> Sistem hazır</div>
         </header>
 
@@ -193,4 +199,19 @@ function Metric({ value, label, note, accent = false }: { value?: number; label:
 
 function messageOf(cause: unknown) {
   return cause instanceof Error ? cause.message : "Bilinmeyen hata";
+}
+
+function formatFullDate(value: Date) {
+  return new Intl.DateTimeFormat("tr-TR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(value);
+}
+
+function formatIsoDate(value: Date) {
+  const year = value.getFullYear();
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  const day = String(value.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }
