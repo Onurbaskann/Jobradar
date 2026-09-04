@@ -222,10 +222,11 @@ def detect(
     limit: int | None = typer.Option(None, "--limit", help="En fazla kaç şirket"),
     company: str | None = typer.Option(None, "--company"),
 ) -> None:
-    """L1/L2/L3'te çözülemeyen şirketler için LLM tespit ajanını çalıştırır.
+    """L1/L2/L3'te çözülemeyen şirketler için Brave + model tespitini çalıştırır.
 
-    Ücretlidir ve şirket başına bir kezdir. Ajanın önerisi doğrudan kabul
-    edilmez; önce adaptörle gerçekten ilan döndüğü doğrulanır.
+    Varsayılan model yerel Qwen'dir; yalnız Brave API kotası kullanılır.
+    Ajanın önerisi doğrudan kabul edilmez; önce adaptörle gerçekten ilan
+    döndüğü doğrulanır.
     """
     asyncio.run(_detect(company, limit))
 
@@ -248,7 +249,9 @@ async def _detect(company_name: str | None, limit: int | None) -> None:
         console.print("Ajan tespiti bekleyen şirket yok.")
         return
 
-    console.print(f"[dim]{len(targets)} şirket için LLM tespit ajanı çalışacak (ücretli).[/dim]")
+    console.print(
+        f"[dim]{len(targets)} şirket için Brave + yerel model tespiti çalışacak.[/dim]"
+    )
     found = 0
 
     async with HttpClient() as http:
@@ -260,7 +263,7 @@ async def _detect(company_name: str | None, limit: int | None) -> None:
                 if record is None:
                     continue
                 if outcome is None:
-                    record.last_error = "LLM tespiti doğrulanamadı"
+                    record.last_error = "Ajan tespiti doğrulanamadı"
                     console.print(f"  [yellow]?[/yellow] {name}: doğrulanabilir kaynak bulunamadı")
                 else:
                     record.adapter_type = outcome.adapter_type
