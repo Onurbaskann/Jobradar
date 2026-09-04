@@ -1,4 +1,6 @@
+import sys
 from datetime import UTC, datetime
+from types import SimpleNamespace
 
 import httpx
 import pytest
@@ -7,6 +9,7 @@ import respx
 from app.discovery.contracts import DiscoveredJob, SearchQuery
 from app.discovery.service import lead_fingerprint
 from app.discovery.sources import (
+    JobSpySource,
     SourceUnavailable,
     TurkiyeWebSource,
     map_jobspy_row,
@@ -58,6 +61,27 @@ def test_jobspy_row_maps_to_canonical_contract() -> None:
     assert result.remote_type is RemoteType.REMOTE
     assert result.apply_url == "https://example.com/jobs/1"
     assert result.posted_at == datetime(2026, 8, 21, 12, tzinfo=UTC)
+
+
+@pytest.mark.parametrize("remote_only", [False, True])
+@pytest.mark.asyncio
+async def test_jobspy_source_passes_boolean_remote_filter(
+    monkeypatch: pytest.MonkeyPatch,
+    remote_only: bool,
+) -> None:
+    call: dict[str, object] = {}
+
+    def scrape_jobs(**kwargs: object) -> SimpleNamespace:
+        call.update(kwargs)
+        return SimpleNamespace(to_dict=lambda *, orient: [])
+
+    monkeypatch.setitem(sys.modules, "jobspy", SimpleNamespace(scrape_jobs=scrape_jobs))
+
+    await JobSpySource().discover(
+        SearchQuery(".NET Developer", "Türkiye", remote_only, 168, 10)
+    )
+
+    assert call["is_remote"] is remote_only
 
 
 def test_turkiye_web_result_maps_yenibiris_title_and_company() -> None:
