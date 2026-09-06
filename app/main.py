@@ -12,6 +12,7 @@ from sqlmodel import Session, col, select
 
 from app.db import get_session
 from app.discovery.api import router as discovery_router
+from app.matching.api import router as matching_router
 from app.models import Company, CompanyStatus, JobPosting
 from app.profile.api import router as profile_router
 
@@ -26,6 +27,7 @@ api.add_middleware(
 )
 api.include_router(discovery_router)
 api.include_router(profile_router)
+api.include_router(matching_router)
 
 
 @api.get("/health")

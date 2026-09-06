@@ -1,12 +1,16 @@
 import { useMemo, useState } from "react";
 
-import type { JobLead, JobLeadStatus } from "../../shared/api/types";
+import type { JobLead, JobLeadStatus, LeadMatch } from "../../shared/api/types";
 import { Button } from "../../shared/ui/Button";
 import { StatusPill } from "../../shared/ui/StatusPill";
 
 interface JobInboxProps {
   leads: JobLead[];
+  matches: LeadMatch[];
   loading: boolean;
+  profileReady: boolean;
+  scoringLeadId: number | null;
+  onScore: (leadId: number) => Promise<void>;
   onStatusChange: (leadId: number, status: JobLeadStatus) => Promise<void>;
 }
 
@@ -17,7 +21,15 @@ const filters: Array<{ value: "all" | JobLeadStatus; label: string }> = [
   { value: "dismissed", label: "Elenen" },
 ];
 
-export function JobInbox({ leads, loading, onStatusChange }: JobInboxProps) {
+export function JobInbox({
+  leads,
+  matches,
+  loading,
+  profileReady,
+  scoringLeadId,
+  onScore,
+  onStatusChange,
+}: JobInboxProps) {
   const [filter, setFilter] = useState<"all" | JobLeadStatus>("new");
   const visible = useMemo(
     () => (filter === "all" ? leads : leads.filter((lead) => lead.status === filter)),
@@ -41,14 +53,33 @@ export function JobInbox({ leads, loading, onStatusChange }: JobInboxProps) {
         <div className="empty-state"><strong>Bu görünümde ilan yok.</strong><span>Keşif taraması başlat veya başka bir filtre seç.</span></div>
       ) : (
         <div className="job-list">
-          {visible.map((lead) => <JobRow lead={lead} onStatusChange={onStatusChange} key={lead.id} />)}
+          {visible.map((lead) => (
+            <JobRow
+              lead={lead}
+              match={matches.find((item) => item.lead_id === lead.id)}
+              profileReady={profileReady}
+              scoring={scoringLeadId === lead.id}
+              scoreBusy={scoringLeadId !== null}
+              onScore={onScore}
+              onStatusChange={onStatusChange}
+              key={lead.id}
+            />
+          ))}
         </div>
       )}
     </section>
   );
 }
 
-function JobRow({ lead, onStatusChange }: { lead: JobLead; onStatusChange: JobInboxProps["onStatusChange"] }) {
+function JobRow({ lead, match, profileReady, scoring, scoreBusy, onScore, onStatusChange }: {
+  lead: JobLead;
+  match?: LeadMatch;
+  profileReady: boolean;
+  scoring: boolean;
+  scoreBusy: boolean;
+  onScore: JobInboxProps["onScore"];
+  onStatusChange: JobInboxProps["onStatusChange"];
+}) {
   return (
     <article className="job-row">
       <div className="company-token" aria-hidden="true">{initials(lead.company_name)}</div>
@@ -59,11 +90,47 @@ function JobRow({ lead, onStatusChange }: { lead: JobLead; onStatusChange: JobIn
       </div>
       <div className="job-actions">
         {lead.apply_url && <a className="text-link" href={lead.apply_url} target="_blank" rel="noreferrer">İlanı aç ↗</a>}
+        <Button
+          variant="quiet"
+          disabled={!profileReady || scoreBusy}
+          onClick={() => void onScore(lead.id)}
+          title={profileReady ? undefined : "Önce CV profilini yükle"}
+        >
+          {scoring
+            ? "Değerlendiriliyor…"
+            : !profileReady
+              ? "Önce CV yükle"
+              : match
+                ? "Yeniden değerlendir"
+                : "CV ile değerlendir"}
+        </Button>
         {lead.status !== "shortlisted" && <Button onClick={() => void onStatusChange(lead.id, "shortlisted")}>Kısa listeye al</Button>}
         {lead.status !== "dismissed" && <Button variant="quiet" onClick={() => void onStatusChange(lead.id, "dismissed")}>Ele</Button>}
         {lead.status !== "new" && <Button variant="quiet" onClick={() => void onStatusChange(lead.id, "new")}>Yeniye taşı</Button>}
       </div>
+      {match && <MatchResult match={match} />}
     </article>
+  );
+}
+
+function MatchResult({ match }: { match: LeadMatch }) {
+  const tone = match.score >= 75 ? "strong" : match.score >= 50 ? "medium" : "low";
+  return (
+    <div className={`match-result match-result--${tone}`}>
+      <div className="match-score" aria-label={`CV uyum puanı ${match.score} üzerinden 100`}>
+        <strong>{match.score}</strong><span>/ 100</span>
+      </div>
+      <div className="match-copy">
+        <strong>CV uyumu</strong>
+        <p>{match.rationale}</p>
+        {match.gaps.length > 0 && (
+          <div className="match-gaps">
+            <span>Eksikler</span>
+            {match.gaps.map((gap) => <em key={gap}>{gap}</em>)}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 

@@ -4,6 +4,7 @@ import type {
   DiscoveryRun,
   JobLead,
   JobLeadStatus,
+  LeadMatch,
   ProfileCreate,
   SearchProfile,
 } from "./types";
@@ -60,4 +61,7 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ status }),
     }),
+  leadMatches: () => request<LeadMatch[]>("/api/jobs/leads/matches"),
+  scoreLead: (leadId: number) =>
+    request<LeadMatch>(`/api/jobs/leads/${leadId}/score`, { method: "POST" }),
 };

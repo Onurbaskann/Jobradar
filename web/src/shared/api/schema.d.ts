@@ -142,6 +142,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/jobs/leads/matches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Lead Matches */
+        get: operations["get_lead_matches_api_jobs_leads_matches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/leads/{lead_id}/score": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Lead Score */
+        post: operations["create_lead_score_api_jobs_leads__lead_id__score_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -244,6 +278,28 @@ export interface components {
          * @enum {string}
          */
         JobLeadStatus: "new" | "shortlisted" | "dismissed";
+        /** LeadMatchView */
+        LeadMatchView: {
+            /** Id */
+            id: number;
+            /** Lead Id */
+            lead_id: number;
+            /** Profile Id */
+            profile_id: number;
+            /** Score */
+            score: number;
+            /** Rationale */
+            rationale: string;
+            /** Gaps */
+            gaps: string[];
+            /** Model */
+            model: string;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /** LeadStatusUpdate */
         LeadStatusUpdate: {
             status: components["schemas"]["JobLeadStatus"];
@@ -705,6 +761,57 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["CandidateProfileView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_lead_matches_api_jobs_leads_matches_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadMatchView"][];
+                };
+            };
+        };
+    };
+    create_lead_score_api_jobs_leads__lead_id__score_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                lead_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LeadMatchView"];
                 };
             };
             /** @description Validation Error */
