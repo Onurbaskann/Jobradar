@@ -124,6 +124,24 @@ export interface paths {
         patch: operations["update_lead_status_api_jobs_leads__lead_id__patch"];
         trace?: never;
     };
+    "/api/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Candidate Profile */
+        get: operations["get_candidate_profile_api_profile_get"];
+        /** Upload Candidate Profile */
+        put: operations["upload_candidate_profile_api_profile_put"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -188,6 +206,29 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_upload_candidate_profile_api_profile_put */
+        Body_upload_candidate_profile_api_profile_put: {
+            /** Name */
+            name: string;
+            /** File */
+            file: string;
+        };
+        /** CandidateProfileView */
+        CandidateProfileView: {
+            /** Id */
+            id: number;
+            /** Name */
+            name: string;
+            /** Filename */
+            filename: string;
+            /** Text Length */
+            text_length: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
         /**
          * DiscoveryRunStatus
          * @enum {string}
@@ -611,6 +652,59 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeadView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_candidate_profile_api_profile_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateProfileView"] | null;
+                };
+            };
+        };
+    };
+    upload_candidate_profile_api_profile_put: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_upload_candidate_profile_api_profile_put"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CandidateProfileView"];
                 };
             };
             /** @description Validation Error */

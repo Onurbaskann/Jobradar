@@ -1,4 +1,5 @@
 import type {
+  CandidateProfile,
   DashboardStats,
   DiscoveryRun,
   JobLead,
@@ -8,9 +9,12 @@ import type {
 } from "./types";
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const headers = init?.body instanceof FormData
+    ? init.headers
+    : { "Content-Type": "application/json", ...init?.headers };
   const response = await fetch(path, {
     ...init,
-    headers: { "Content-Type": "application/json", ...init?.headers },
+    headers,
   });
   if (!response.ok) {
     const payload = (await response.json().catch(() => null)) as { detail?: string } | null;
@@ -21,6 +25,13 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   stats: () => request<DashboardStats>("/stats"),
+  candidateProfile: () => request<CandidateProfile | null>("/api/profile"),
+  uploadCandidateProfile: (name: string, file: File) => {
+    const body = new FormData();
+    body.set("name", name);
+    body.set("file", file);
+    return request<CandidateProfile>("/api/profile", { method: "PUT", body });
+  },
   profiles: () => request<SearchProfile[]>("/api/discovery/profiles"),
   createProfile: (profile: ProfileCreate) =>
     request<SearchProfile>("/api/discovery/profiles", {

@@ -126,6 +126,28 @@ main { min-width: 0; padding: 0 44px 64px; }
 .check-field input { width: 17px; height: 17px; accent-color: var(--blue); }
 .profile-form .button { justify-self: end; align-self: end; min-width: 140px; }
 
+.cv-panel { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(230px, .55fr); overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 10px 30px rgba(26, 54, 93, .04); }
+.cv-upload { display: grid; grid-template-columns: 1fr 1fr; gap: 17px; padding: 27px; }
+.cv-upload > div { grid-column: 1 / -1; }
+.cv-upload strong { font-size: 17px; }
+.cv-upload p { color: var(--muted); margin: 6px 0 0; font-size: 13px; line-height: 1.5; }
+.cv-upload label { display: grid; gap: 7px; color: #43556b; font-size: 11px; font-weight: 800; }
+.cv-upload input:not([type="file"]) { width: 100%; padding: 11px 12px; border: 1px solid #ccd8e6; border-radius: 8px; color: var(--ink); background: #fff; }
+.cv-file { position: relative; }
+.cv-file input { position: absolute; width: 1px; height: 1px; overflow: hidden; opacity: 0; }
+.cv-file span { min-height: 41px; display: flex; align-items: center; padding: 10px 12px; color: var(--muted); border: 1px dashed #aebfd1; border-radius: 8px; background: #f8fafc; cursor: pointer; }
+.cv-file:focus-within span { outline: 3px solid rgba(47, 107, 255, .35); outline-offset: 3px; }
+.cv-upload .button { justify-self: start; }
+.cv-signal { position: relative; min-height: 220px; display: grid; align-content: center; justify-items: center; overflow: hidden; color: #dbe8fa; background: linear-gradient(145deg, #10233d, #1b426e); border-left: 1px solid var(--line); text-align: center; }
+.cv-signal::before { content: ""; position: absolute; width: 170px; height: 170px; border: 1px solid rgba(149, 180, 218, .23); border-radius: 50%; background: repeating-radial-gradient(circle, transparent 0 23px, rgba(149, 180, 218, .12) 24px 25px); }
+.cv-signal > *:not(.cv-scan) { position: relative; z-index: 1; }
+.cv-signal .section-kicker { color: #9bb8df; }
+.cv-signal strong { margin-top: 11px; font: 600 40px/1 "Bahnschrift", sans-serif; }
+.cv-signal small { margin-top: 5px; color: #aebfd3; font-size: 11px; }
+.cv-signal p { max-width: 190px; margin: 18px 0 0; overflow: hidden; color: #fff; font-size: 11px; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.cv-scan { position: absolute; z-index: 1; width: 72%; height: 1px; background: linear-gradient(90deg, transparent, var(--orange), transparent); box-shadow: 0 0 12px rgba(255, 117, 72, .55); animation: cv-scan 3.8s ease-in-out infinite; }
+@keyframes cv-scan { 0%, 100% { transform: translateY(-76px); opacity: .35; } 50% { transform: translateY(76px); opacity: 1; } }
+
 .section-heading--jobs { align-items: center; }
 .filter-tabs { display: flex; gap: 3px; padding: 4px; border: 1px solid var(--line); background: #eaf0f6; border-radius: 9px; }
 .filter-tabs button { border: 0; color: var(--muted); background: transparent; padding: 7px 9px; border-radius: 6px; cursor: pointer; font-size: 11px; font-weight: 800; }
@@ -177,6 +199,10 @@ main { min-width: 0; padding: 0 44px 64px; }
   .profile-form { grid-template-columns: 1fr; }
   .profile-form .field-wide, .form-intro { grid-column: auto; }
   .profile-form .button { justify-self: stretch; }
+  .cv-panel, .cv-upload { grid-template-columns: 1fr; }
+  .cv-upload > div { grid-column: auto; }
+  .cv-upload .button { width: 100%; }
+  .cv-signal { min-height: 190px; border-left: 0; border-top: 1px solid var(--line); }
   .source-lane { padding-inline: 14px; }
   .run-action { align-items: stretch; flex-direction: column; padding: 15px; }
   .job-row { grid-template-columns: 38px minmax(0, 1fr); gap: 12px; padding: 17px 14px; }

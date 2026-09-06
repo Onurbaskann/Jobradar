@@ -5,6 +5,7 @@ export type ProfileCreate = components["schemas"]["ProfileCreate"];
 export type DiscoveryRun = components["schemas"]["RunView"];
 export type JobLead = components["schemas"]["LeadView"];
 export type JobLeadStatus = components["schemas"]["JobLeadStatus"];
+export type CandidateProfile = components["schemas"]["CandidateProfileView"];
 
 export interface DashboardStats {
   open_jobs: number;
