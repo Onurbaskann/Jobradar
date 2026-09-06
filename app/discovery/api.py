@@ -9,7 +9,11 @@ from pydantic import Field as PydanticField
 from sqlmodel import Session, col, select
 
 from app.db import get_session
-from app.discovery.service import create_run, execute_discovery_run
+from app.discovery.service import (
+    create_run,
+    execute_discovery_run,
+    prioritize_leads_by_location,
+)
 from app.models import (
     DiscoveryRun,
     DiscoveryRunStatus,
@@ -23,6 +27,7 @@ from app.models import (
 router = APIRouter(prefix="/api")
 SessionDep = Annotated[Session, Depends(get_session)]
 LeadLimit = Annotated[int, Query(ge=1, le=200)]
+PreferredLocation = Annotated[str | None, Query(min_length=2, max_length=100)]
 
 
 class ProfileCreate(BaseModel):
@@ -170,13 +175,20 @@ def list_leads(
     session: SessionDep,
     status: JobLeadStatus | None = None,
     limit: LeadLimit = 50,
+    preferred_location: PreferredLocation = None,
 ) -> list[JobLead]:
     query = select(JobLead)
     if status is not None:
         query = query.where(JobLead.status == status)
-    return list(
-        session.exec(query.order_by(col(JobLead.first_seen_at).desc()).limit(limit)).all()
+    fetch_limit = 200 if preferred_location else limit
+    leads = list(
+        session.exec(
+            query.order_by(col(JobLead.first_seen_at).desc()).limit(fetch_limit)
+        ).all()
     )
+    if preferred_location:
+        return prioritize_leads_by_location(leads, preferred_location)[:limit]
+    return leads
 
 
 @router.patch("/jobs/leads/{lead_id}", response_model=LeadView)

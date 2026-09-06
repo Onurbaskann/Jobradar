@@ -7,6 +7,7 @@ import { StatusPill } from "../../shared/ui/StatusPill";
 interface JobInboxProps {
   leads: JobLead[];
   matches: LeadMatch[];
+  preferredLocation: string;
   loading: boolean;
   profileReady: boolean;
   scoringLeadId: number | null;
@@ -24,6 +25,7 @@ const filters: Array<{ value: "all" | JobLeadStatus; label: string }> = [
 export function JobInbox({
   leads,
   matches,
+  preferredLocation,
   loading,
   profileReady,
   scoringLeadId,
@@ -39,7 +41,10 @@ export function JobInbox({
   return (
     <section className="section section--inbox" id="inbox" aria-labelledby="inbox-title">
       <div className="section-heading section-heading--jobs">
-        <div><span className="section-kicker">İlan kutusu</span><h2 id="inbox-title">Karar bekleyen fırsatlar</h2></div>
+        <div>
+          <span className="section-kicker">İlan kutusu · {preferredLocation} öncelikli</span>
+          <h2 id="inbox-title">Karar bekleyen fırsatlar</h2>
+        </div>
         <div className="filter-tabs" role="group" aria-label="İlan durumunu filtrele">
           {filters.map((item) => (
             <button className={filter === item.value ? "active" : ""} onClick={() => setFilter(item.value)} key={item.value}>

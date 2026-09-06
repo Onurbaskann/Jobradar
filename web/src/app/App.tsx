@@ -14,6 +14,8 @@ import type {
   SearchProfile,
 } from "../shared/api/types";
 
+const PREFERRED_LOCATION = "İzmir";
+
 export function App() {
   const today = new Date();
   const [profiles, setProfiles] = useState<SearchProfile[]>([]);
@@ -29,7 +31,7 @@ export function App() {
 
   const refreshData = useCallback(async (profileId?: number) => {
     const [nextLeads, nextStats, nextRun, nextMatches] = await Promise.all([
-      api.leads(),
+      api.leads(PREFERRED_LOCATION),
       api.stats(),
       api.latestRun(profileId),
       api.leadMatches(),
@@ -226,6 +228,7 @@ export function App() {
         <JobInbox
           leads={leads}
           matches={matches}
+          preferredLocation={PREFERRED_LOCATION}
           loading={loading}
           profileReady={candidateProfile !== null}
           scoringLeadId={scoringLeadId}

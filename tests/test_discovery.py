@@ -7,7 +7,7 @@ import pytest
 import respx
 
 from app.discovery.contracts import DiscoveredJob, SearchQuery
-from app.discovery.service import lead_fingerprint
+from app.discovery.service import lead_fingerprint, prioritize_leads_by_location
 from app.discovery.sources import (
     JobSpySource,
     SourceUnavailable,
@@ -15,7 +15,7 @@ from app.discovery.sources import (
     map_jobspy_row,
     map_turkiye_web_result,
 )
-from app.models import RemoteType
+from app.models import JobLead, RemoteType
 from app.web_search import WebSearchResult
 
 
@@ -41,6 +41,30 @@ def test_fingerprint_keeps_different_locations_separate() -> None:
     ankara = DiscoveredJob("indeed", ".NET Developer", "Acme", "Ankara")
 
     assert lead_fingerprint(istanbul) != lead_fingerprint(ankara)
+
+
+def test_prioritizes_izmir_without_reordering_other_locations() -> None:
+    leads = [
+        JobLead(fingerprint="1", title="A", company_name="A", location="İstanbul"),
+        JobLead(fingerprint="2", title="B", company_name="B", location="Izmir, Türkiye"),
+        JobLead(fingerprint="3", title="C", company_name="C", location="Ankara"),
+        JobLead(fingerprint="4", title="D", company_name="D", location="İZMİR / Hibrit"),
+    ]
+
+    prioritized = prioritize_leads_by_location(leads, "İzmir")
+
+    assert [lead.fingerprint for lead in prioritized] == ["2", "4", "1", "3"]
+
+
+def test_location_priority_handles_missing_location() -> None:
+    leads = [
+        JobLead(fingerprint="1", title="A", company_name="A", location=None),
+        JobLead(fingerprint="2", title="B", company_name="B", location="İzmir"),
+    ]
+
+    prioritized = prioritize_leads_by_location(leads, "İzmir")
+
+    assert [lead.fingerprint for lead in prioritized] == ["2", "1"]
 
 
 def test_jobspy_row_maps_to_canonical_contract() -> None:
