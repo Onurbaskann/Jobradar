@@ -1,0 +1,9 @@
+Jobradar veritabanı şeması Alembic ile yönetilir.
+
+Yeni model değişikliklerinde migration oluşturmak için:
+
+    alembic revision --autogenerate -m "kısa açıklama"
+
+Migration'ı uygulamak için:
+
+    jobradar init-db

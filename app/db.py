@@ -2,8 +2,10 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from functools import lru_cache
 
-from sqlalchemy import Engine, text
-from sqlmodel import Session, SQLModel, create_engine
+from alembic import command
+from alembic.config import Config
+from sqlalchemy import Engine
+from sqlmodel import Session, create_engine
 
 from app.config import get_settings
 
@@ -19,22 +21,8 @@ def get_engine() -> Engine:
 
 
 def init_db() -> None:
-    """Uzantıları ve tabloları oluşturur. Şema oturana kadar Alembic yerine bu kullanılır."""
-    import app.models  # noqa: F401  — tabloların metadata'ya kaydolması için
-
-    engine = get_engine()
-    with engine.begin() as conn:
-        conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-    SQLModel.metadata.create_all(engine)
-    # create_all mevcut tabloya sütun eklemez. Alembic'e geçiş tamamlanana kadar
-    # bu geriye uyumlu değişiklik mevcut kurulumları güvenle yükseltir.
-    with engine.begin() as conn:
-        conn.execute(
-            text(
-                "ALTER TABLE company ADD COLUMN IF NOT EXISTS "
-                "consecutive_empty_results INTEGER NOT NULL DEFAULT 0"
-            )
-        )
+    """Bekleyen Alembic migration'larını veritabanına uygular."""
+    command.upgrade(Config("alembic.ini"), "head")
 
 
 @contextmanager
