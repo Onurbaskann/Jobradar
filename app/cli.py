@@ -31,7 +31,7 @@ def _configure(verbose: bool = typer.Option(False, "--verbose", "-v")) -> None:
 
 @app.command("init-db")
 def init_db_command() -> None:
-    """Uzantıları ve tabloları oluşturur."""
+    """Bekleyen veritabanı migration'larını uygular."""
     init_db()
     console.print("[green]Veritabanı hazır.[/green]")
 

@@ -24,11 +24,13 @@ COPY pyproject.toml README.md ./
 COPY app ./app
 RUN pip install ".[discovery]"
 
+COPY alembic.ini ./
+COPY migrations ./migrations
+
 COPY --from=web-build /web/dist ./web/dist
 
 COPY seeds ./seeds
 
-# Şema şimdilik `jobradar init-db` ile kuruluyor; şema oturunca Alembic'e geçilecek.
 RUN groupadd --system jobradar \
     && useradd --system --gid jobradar --home-dir /app --no-create-home jobradar \
     && mkdir -p /app/data /app/secrets \
@@ -37,4 +39,4 @@ RUN groupadd --system jobradar \
 USER jobradar
 
 EXPOSE 8000
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "jobradar init-db && exec uvicorn app.main:app --host 0.0.0.0 --port 8000"]

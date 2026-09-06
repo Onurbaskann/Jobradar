@@ -19,19 +19,19 @@ Her şirket bir kez adaptöre bağlanır, sonra hep aynı ucuz yoldan taranır.
 
 ```bash
 cp .env.example .env        # POSTGRES_PASSWORD ve kullanacağın API anahtarlarını doldur
-docker compose up -d db
-docker compose run --rm app jobradar init-db
+docker compose up -d --build
 ```
 
-Mevcut bir kurulumu yeni sürüme yükselttikten sonra da `jobradar init-db`
-komutunu bir kez çalıştır. Komut mevcut veriyi silmez; eksik geriye uyumlu
-şema alanlarını ekler.
+Uygulama açılmadan önce bekleyen Alembic migration'ları otomatik uygulanır.
+Gerektiğinde aynı işlemi elle `docker compose run --rm app jobradar init-db`
+komutuyla çalıştırabilirsin.
 
-Tüm uygulamayı başlatmak için:
+Alembic öncesi bir Jobradar veritabanını ilk kez yükseltirken mevcut şemayı
+başlangıç sürümü olarak bir kez işaretle. Bu komut yalnız eski, tabloları zaten
+bulunan kurulumlar içindir; boş veritabanında kullanılmamalıdır:
 
 ```bash
-docker compose up -d --build app
-docker compose exec app jobradar init-db
+docker compose run --rm app alembic stamp 746f24b87002
 ```
 
 Arayüz `http://localhost:8000` adresindedir. Burada arama profili oluşturabilir,

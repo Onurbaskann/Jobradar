@@ -30,7 +30,9 @@ services:
       - ./secrets:/app/secrets
     ports:
       - "127.0.0.1:${PANEL_PORT:-8000}:${PANEL_PORT:-8000}"
-    command: uvicorn app.main:app --host ${PANEL_HOST:-0.0.0.0} --port ${PANEL_PORT:-8000}
+    command: >-
+      sh -c "jobradar init-db && exec uvicorn app.main:app
+      --host ${PANEL_HOST:-0.0.0.0} --port ${PANEL_PORT:-8000}"
 
 volumes:
   pgdata:
