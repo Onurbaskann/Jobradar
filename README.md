@@ -152,7 +152,7 @@ tarayıcı) gerekir; bu henüz kapsam dışı ve ayrı bir karar.
 | 1 | 7 ATS adaptörü, kanıtlı tespit, onay akışı | ✅ gerçek ilanlarla doğrulandı |
 | 2 | JSON-LD, sitemap, robots.txt, değişiklik tespiti | ✅ gerçek sitelerde ölçüldü |
 | 3 | Brave + yerel Qwen tespit ve çıkarım ajanları | ✅ Trendyol üzerinde canlı doğrulandı |
-| 4 | CV profili ve eşleştirme | ⚠️ CV yükleme hazır, eşleştirme bekliyor |
+| 4 | CV profili ve eşleştirme | ✅ Tek ilanı yerel Qwen ile puanlama hazır |
 | 5–6 | Onay paneli ve gönderim | ⏳ |
 | 7 | JobSpy keşfi, arama profilleri ve React ilan kutusu | ✅ ilk dikey dilim hazır |
 | 8 | Türkiye'ye özel portal arama adaptörleri ve deploy | ⚠️ adaptör canlı doğrulandı, deploy bekliyor |

@@ -3,6 +3,7 @@ from io import BytesIO
 import pytest
 from docx import Document
 
+from app.models import Profile
 from app.profile.service import (
     MAX_CV_BYTES,
     CvValidationError,
@@ -12,13 +13,21 @@ from app.profile.service import (
 
 
 class _Result:
+    def __init__(self, value=None):
+        self.value = value
+
     def first(self):
-        return None
+        return self.value
 
 
 class _Session:
+    def __init__(self, profile=None):
+        self.existing_profile = profile
+        self.exec_count = 0
+
     def exec(self, _query):
-        return _Result()
+        self.exec_count += 1
+        return _Result(self.existing_profile if self.exec_count == 1 else None)
 
     def add(self, profile) -> None:
         self.profile = profile
@@ -92,3 +101,23 @@ def test_rejects_blank_candidate_name(tmp_path) -> None:
             content=b"Python",
             upload_dir=tmp_path,
         )
+
+
+def test_replacing_cv_clears_previous_match_results(tmp_path) -> None:
+    profile = Profile(
+        id=1,
+        name="Onur",
+        cv_text="Eski CV",
+        cv_file_path="data/cv/old.txt",
+    )
+    session = _Session(profile)
+
+    save_candidate_profile(
+        session,  # type: ignore[arg-type]
+        name="Onur",
+        filename="new.txt",
+        content=b"Yeni CV metni",
+        upload_dir=tmp_path,
+    )
+
+    assert session.exec_count == 2

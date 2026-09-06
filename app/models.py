@@ -309,6 +309,22 @@ class JobLead(SQLModel, table=True):
     last_seen_at: datetime = Field(default_factory=utcnow)
 
 
+class LeadMatch(SQLModel, table=True):
+    """Keşfedilen bir ilanın belirli CV profiliyle değerlendirmesi."""
+
+    __tablename__ = "lead_match"
+    __table_args__ = (UniqueConstraint("lead_id", "profile_id", name="uq_lead_match_profile"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    lead_id: int = Field(foreign_key="job_lead.id", index=True)
+    profile_id: int = Field(foreign_key="profile.id", index=True)
+    score: int
+    rationale: str
+    gaps: list[str] = Field(default_factory=list, sa_column=Column(JSONB))
+    model: str
+    updated_at: datetime = Field(default_factory=utcnow)
+
+
 class UsageLog(SQLModel, table=True):
     """Her ajan çağrısının token/maliyet kaydı — panelde günlük harcama için."""
 

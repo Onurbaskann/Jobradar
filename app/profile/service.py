@@ -8,9 +8,9 @@ from docx import Document
 from docx.opc.exceptions import PackageNotFoundError
 from pypdf import PdfReader
 from pypdf.errors import PdfReadError
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
-from app.models import Profile, utcnow
+from app.models import LeadMatch, Profile, utcnow
 
 MAX_CV_BYTES = 5 * 1024 * 1024
 MAX_CV_TEXT_CHARS = 200_000
@@ -82,6 +82,8 @@ def save_candidate_profile(
     profile.embedding = None
     profile.updated_at = utcnow()
     session.add(profile)
+    if profile.id is not None:
+        session.exec(delete(LeadMatch).where(LeadMatch.profile_id == profile.id))
     session.commit()
     session.refresh(profile)
     return profile

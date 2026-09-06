@@ -9,6 +9,7 @@ import type {
   DashboardStats,
   DiscoveryRun,
   JobLead,
+  LeadMatch,
   ProfileCreate,
   SearchProfile,
 } from "../shared/api/types";
@@ -19,20 +20,24 @@ export function App() {
   const [selectedProfileId, setSelectedProfileId] = useState<number | null>(null);
   const [run, setRun] = useState<DiscoveryRun | null>(null);
   const [leads, setLeads] = useState<JobLead[]>([]);
+  const [matches, setMatches] = useState<LeadMatch[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [scoringLeadId, setScoringLeadId] = useState<number | null>(null);
 
   const refreshData = useCallback(async (profileId?: number) => {
-    const [nextLeads, nextStats, nextRun] = await Promise.all([
+    const [nextLeads, nextStats, nextRun, nextMatches] = await Promise.all([
       api.leads(),
       api.stats(),
       api.latestRun(profileId),
+      api.leadMatches(),
     ]);
     setLeads(nextLeads);
     setStats(nextStats);
     setRun(nextRun);
+    setMatches(nextMatches);
   }, []);
 
   useEffect(() => {
@@ -136,10 +141,24 @@ export function App() {
     try {
       setError(null);
       setCandidateProfile(await api.uploadCandidateProfile(name, file));
+      setMatches([]);
       return true;
     } catch (cause) {
       setError(messageOf(cause));
       return false;
+    }
+  }
+
+  async function scoreLead(leadId: number) {
+    try {
+      setError(null);
+      setScoringLeadId(leadId);
+      const match = await api.scoreLead(leadId);
+      setMatches((current) => [match, ...current.filter((item) => item.lead_id !== leadId)]);
+    } catch (cause) {
+      setError(messageOf(cause));
+    } finally {
+      setScoringLeadId(null);
     }
   }
 
@@ -204,7 +223,15 @@ export function App() {
           onEnableSource={enableProfileSource}
           onStart={startDiscovery}
         />
-        <JobInbox leads={leads} loading={loading} onStatusChange={changeLeadStatus} />
+        <JobInbox
+          leads={leads}
+          matches={matches}
+          loading={loading}
+          profileReady={candidateProfile !== null}
+          scoringLeadId={scoringLeadId}
+          onScore={scoreLead}
+          onStatusChange={changeLeadStatus}
+        />
       </main>
     </div>
   );
