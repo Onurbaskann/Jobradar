@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import { DiscoveryPanel } from "../features/discovery/DiscoveryPanel";
 import { JobInbox } from "../features/jobs/JobInbox";
+import { CandidateProfilePanel } from "../features/profile/CandidateProfilePanel";
 import { api } from "../shared/api/client";
 import type {
+  CandidateProfile,
   DashboardStats,
   DiscoveryRun,
   JobLead,
@@ -18,6 +20,7 @@ export function App() {
   const [run, setRun] = useState<DiscoveryRun | null>(null);
   const [leads, setLeads] = useState<JobLead[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
+  const [candidateProfile, setCandidateProfile] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,11 +39,15 @@ export function App() {
     let active = true;
     async function load() {
       try {
-        const nextProfiles = await api.profiles();
+        const [nextProfiles, nextCandidateProfile] = await Promise.all([
+          api.profiles(),
+          api.candidateProfile(),
+        ]);
         if (!active) return;
         const firstId = nextProfiles[0]?.id ?? null;
         setProfiles(nextProfiles);
         setSelectedProfileId(firstId);
+        setCandidateProfile(nextCandidateProfile);
         await refreshData(firstId ?? undefined);
       } catch (cause) {
         if (active) setError(messageOf(cause));
@@ -125,6 +132,17 @@ export function App() {
     }
   }
 
+  async function uploadCandidateProfile(name: string, file: File) {
+    try {
+      setError(null);
+      setCandidateProfile(await api.uploadCandidateProfile(name, file));
+      return true;
+    } catch (cause) {
+      setError(messageOf(cause));
+      return false;
+    }
+  }
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -135,6 +153,7 @@ export function App() {
         <nav aria-label="Ana menü">
           <a className="nav-item nav-item--active" href="#overview"><span>⌁</span> Genel bakış</a>
           <a className="nav-item" href="#discovery"><span>◉</span> Keşif</a>
+          <a className="nav-item" href="#profile"><span>◇</span> CV profili</a>
           <a className="nav-item" href="#inbox"><span>▤</span> İlan kutusu</a>
         </nav>
         <div className="sidebar-note">
@@ -172,6 +191,8 @@ export function App() {
             <Metric value={stats?.active_companies} label="Aktif şirket" note="düzenli taranıyor" />
           </div>
         </section>
+
+        <CandidateProfilePanel profile={candidateProfile} loading={loading} onUpload={uploadCandidateProfile} />
 
         <DiscoveryPanel
           profiles={profiles}

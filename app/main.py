@@ -13,6 +13,7 @@ from sqlmodel import Session, col, select
 from app.db import get_session
 from app.discovery.api import router as discovery_router
 from app.models import Company, CompanyStatus, JobPosting
+from app.profile.api import router as profile_router
 
 api = FastAPI(title="jobradar", version="0.1.0")
 app = api
@@ -24,6 +25,7 @@ api.add_middleware(
     allow_headers=["*"],
 )
 api.include_router(discovery_router)
+api.include_router(profile_router)
 
 
 @api.get("/health")
