@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
 
 import { DiscoveryPanel } from "../features/discovery/DiscoveryPanel";
+import { ApplicationWorkspace } from "../features/applications/ApplicationWorkspace";
 import { JobInbox } from "../features/jobs/JobInbox";
 import { CandidateProfilePanel } from "../features/profile/CandidateProfilePanel";
 import { api } from "../shared/api/client";
 import type {
   CandidateProfile,
+  ApplicationUpdate,
   DashboardStats,
   DiscoveryRun,
   JobLead,
+  JobApplication,
   LeadMatch,
   ProfileCreate,
   SearchProfile,
@@ -23,23 +26,27 @@ export function App() {
   const [run, setRun] = useState<DiscoveryRun | null>(null);
   const [leads, setLeads] = useState<JobLead[]>([]);
   const [matches, setMatches] = useState<LeadMatch[]>([]);
+  const [applications, setApplications] = useState<JobApplication[]>([]);
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [scoringLeadId, setScoringLeadId] = useState<number | null>(null);
+  const [preparingMatchId, setPreparingMatchId] = useState<number | null>(null);
 
   const refreshData = useCallback(async (profileId?: number) => {
-    const [nextLeads, nextStats, nextRun, nextMatches] = await Promise.all([
+    const [nextLeads, nextStats, nextRun, nextMatches, nextApplications] = await Promise.all([
       api.leads(PREFERRED_LOCATION),
       api.stats(),
       api.latestRun(profileId),
       api.leadMatches(),
+      api.applications(),
     ]);
     setLeads(nextLeads);
     setStats(nextStats);
     setRun(nextRun);
     setMatches(nextMatches);
+    setApplications(nextApplications);
   }, []);
 
   useEffect(() => {
@@ -143,7 +150,7 @@ export function App() {
     try {
       setError(null);
       setCandidateProfile(await api.uploadCandidateProfile(name, file));
-      setMatches([]);
+      await refreshData(selectedProfileId ?? undefined);
       return true;
     } catch (cause) {
       setError(messageOf(cause));
@@ -162,6 +169,55 @@ export function App() {
     } finally {
       setScoringLeadId(null);
     }
+  }
+
+  async function prepareApplication(leadMatchId: number) {
+    try {
+      setError(null);
+      setPreparingMatchId(leadMatchId);
+      const application = await api.prepareApplication(leadMatchId);
+      setApplications((current) => [
+        application,
+        ...current.filter((item) => item.id !== application.id),
+      ]);
+      window.requestAnimationFrame(() => {
+        document.getElementById("applications")?.scrollIntoView({ behavior: "smooth" });
+      });
+    } catch (cause) {
+      setError(messageOf(cause));
+    } finally {
+      setPreparingMatchId(null);
+    }
+  }
+
+  async function saveApplication(applicationId: number, payload: ApplicationUpdate) {
+    try {
+      setError(null);
+      const updated = await api.updateApplication(applicationId, payload);
+      replaceApplication(updated);
+      return true;
+    } catch (cause) {
+      setError(messageOf(cause));
+      return false;
+    }
+  }
+
+  async function approveApplication(applicationId: number) {
+    try {
+      setError(null);
+      const approved = await api.approveApplication(applicationId);
+      replaceApplication(approved);
+      return true;
+    } catch (cause) {
+      setError(messageOf(cause));
+      return false;
+    }
+  }
+
+  function replaceApplication(application: JobApplication) {
+    setApplications((current) =>
+      current.map((item) => (item.id === application.id ? application : item)),
+    );
   }
 
   return (
@@ -232,8 +288,21 @@ export function App() {
           loading={loading}
           profileReady={candidateProfile !== null}
           scoringLeadId={scoringLeadId}
+          applicationMatchIds={applications.flatMap((item) =>
+            item.lead_match_id === null ? [] : [item.lead_match_id],
+          )}
+          preparingMatchId={preparingMatchId}
           onScore={scoreLead}
+          onPrepareApplication={prepareApplication}
           onStatusChange={changeLeadStatus}
+        />
+        <ApplicationWorkspace
+          applications={applications}
+          leads={leads}
+          matches={matches}
+          onSave={saveApplication}
+          onApprove={approveApplication}
+          onRegenerate={prepareApplication}
         />
       </main>
     </div>

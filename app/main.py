@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, text
 from sqlmodel import Session, col, select
 
+from app.applications.api import router as applications_router
 from app.db import get_session
 from app.discovery.api import router as discovery_router
 from app.matching.api import router as matching_router
@@ -28,6 +29,7 @@ api.add_middleware(
 api.include_router(discovery_router)
 api.include_router(profile_router)
 api.include_router(matching_router)
+api.include_router(applications_router)
 
 
 @api.get("/health")

@@ -220,7 +220,15 @@ class Application(SQLModel, table=True):
     __tablename__ = "application"
 
     id: int | None = Field(default=None, primary_key=True)
-    match_id: int = Field(foreign_key="match.id", index=True, unique=True)
+    lead_match_id: int | None = Field(
+        default=None,
+        foreign_key="lead_match.id",
+        index=True,
+        unique=True,
+        ondelete="SET NULL",
+    )
+    job_title: str = ""
+    company_name: str = ""
 
     tailored_cv_path: str | None = None
     cover_letter: str = ""

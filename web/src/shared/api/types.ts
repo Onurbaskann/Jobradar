@@ -7,6 +7,8 @@ export type JobLead = components["schemas"]["LeadView"];
 export type JobLeadStatus = components["schemas"]["JobLeadStatus"];
 export type CandidateProfile = components["schemas"]["CandidateProfileView"];
 export type LeadMatch = components["schemas"]["LeadMatchView"];
+export type JobApplication = components["schemas"]["ApplicationView"];
+export type ApplicationUpdate = components["schemas"]["ApplicationUpdate"];
 
 export interface DashboardStats {
   open_jobs: number;

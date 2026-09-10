@@ -11,7 +11,10 @@ interface JobInboxProps {
   loading: boolean;
   profileReady: boolean;
   scoringLeadId: number | null;
+  applicationMatchIds: number[];
+  preparingMatchId: number | null;
   onScore: (leadId: number) => Promise<void>;
+  onPrepareApplication: (leadMatchId: number) => Promise<void>;
   onStatusChange: (leadId: number, status: JobLeadStatus) => Promise<void>;
 }
 
@@ -29,7 +32,10 @@ export function JobInbox({
   loading,
   profileReady,
   scoringLeadId,
+  applicationMatchIds,
+  preparingMatchId,
   onScore,
+  onPrepareApplication,
   onStatusChange,
 }: JobInboxProps) {
   const [filter, setFilter] = useState<"all" | JobLeadStatus>("new");
@@ -65,7 +71,12 @@ export function JobInbox({
               profileReady={profileReady}
               scoring={scoringLeadId === lead.id}
               scoreBusy={scoringLeadId !== null}
+              applicationReady={applicationMatchIds.includes(
+                matches.find((item) => item.lead_id === lead.id)?.id ?? -1,
+              )}
+              preparingMatchId={preparingMatchId}
               onScore={onScore}
+              onPrepareApplication={onPrepareApplication}
               onStatusChange={onStatusChange}
               key={lead.id}
             />
@@ -76,13 +87,16 @@ export function JobInbox({
   );
 }
 
-function JobRow({ lead, match, profileReady, scoring, scoreBusy, onScore, onStatusChange }: {
+function JobRow({ lead, match, profileReady, scoring, scoreBusy, applicationReady, preparingMatchId, onScore, onPrepareApplication, onStatusChange }: {
   lead: JobLead;
   match?: LeadMatch;
   profileReady: boolean;
   scoring: boolean;
   scoreBusy: boolean;
+  applicationReady: boolean;
+  preparingMatchId: number | null;
   onScore: JobInboxProps["onScore"];
+  onPrepareApplication: JobInboxProps["onPrepareApplication"];
   onStatusChange: JobInboxProps["onStatusChange"];
 }) {
   return (
@@ -113,13 +127,28 @@ function JobRow({ lead, match, profileReady, scoring, scoreBusy, onScore, onStat
         {lead.status !== "dismissed" && <Button variant="quiet" onClick={() => void onStatusChange(lead.id, "dismissed")}>Ele</Button>}
         {lead.status !== "new" && <Button variant="quiet" onClick={() => void onStatusChange(lead.id, "new")}>Yeniye taşı</Button>}
       </div>
-      {match && <MatchResult match={match} />}
+      {match && (
+        <MatchResult
+          match={match}
+          shortlisted={lead.status === "shortlisted"}
+          applicationReady={applicationReady}
+          preparingMatchId={preparingMatchId}
+          onPrepareApplication={onPrepareApplication}
+        />
+      )}
     </article>
   );
 }
 
-function MatchResult({ match }: { match: LeadMatch }) {
+function MatchResult({ match, shortlisted, applicationReady, preparingMatchId, onPrepareApplication }: {
+  match: LeadMatch;
+  shortlisted: boolean;
+  applicationReady: boolean;
+  preparingMatchId: number | null;
+  onPrepareApplication: JobInboxProps["onPrepareApplication"];
+}) {
   const tone = match.score >= 75 ? "strong" : match.score >= 50 ? "medium" : "low";
+  const preparing = preparingMatchId === match.id;
   return (
     <div className={`match-result match-result--${tone}`}>
       <div className="match-score" aria-label={`CV uyum puanı ${match.score} üzerinden 100`}>
@@ -133,6 +162,20 @@ function MatchResult({ match }: { match: LeadMatch }) {
             <span>Eksikler</span>
             {match.gaps.map((gap) => <em key={gap}>{gap}</em>)}
           </div>
+        )}
+      </div>
+      <div className="match-next-step">
+        {applicationReady ? (
+          <a className="button button--quiet" href="#applications">Taslağı aç</a>
+        ) : (
+          <Button
+            variant="quiet"
+            disabled={!shortlisted || preparingMatchId !== null}
+            onClick={() => void onPrepareApplication(match.id)}
+            title={shortlisted ? undefined : "Önce ilanı kısa listeye al"}
+          >
+            {preparing ? "Taslak hazırlanıyor…" : shortlisted ? "Başvuru hazırla" : "Önce kısa listeye al"}
+          </Button>
         )}
       </div>
     </div>
