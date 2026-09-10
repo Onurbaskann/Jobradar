@@ -54,8 +54,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ profile_id: profileId }),
     }),
-  leads: (status?: JobLeadStatus) =>
-    request<JobLead[]>(`/api/jobs/leads${status ? `?status=${status}` : ""}`),
+  leads: (preferredLocation?: string, status?: JobLeadStatus) => {
+    const params = new URLSearchParams();
+    if (preferredLocation) params.set("preferred_location", preferredLocation);
+    if (status) params.set("status", status);
+    const query = params.size > 0 ? `?${params.toString()}` : "";
+    return request<JobLead[]>(`/api/jobs/leads${query}`);
+  },
   setLeadStatus: (leadId: number, status: JobLeadStatus) =>
     request<JobLead>(`/api/jobs/leads/${leadId}`, {
       method: "PATCH",

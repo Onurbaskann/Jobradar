@@ -659,6 +659,7 @@ export interface operations {
             query?: {
                 status?: components["schemas"]["JobLeadStatus"] | null;
                 limit?: number;
+                preferred_location?: string | null;
             };
             header?: never;
             path?: never;

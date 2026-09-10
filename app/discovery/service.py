@@ -116,6 +116,19 @@ def lead_fingerprint(job: DiscoveredJob) -> str:
     )
 
 
+def prioritize_leads_by_location(
+    leads: list[JobLead], preferred_location: str
+) -> list[JobLead]:
+    """Tercih edilen konumdaki ilanları öne alır, diğerlerinin sırasını korur."""
+    preferred = _identity_part(preferred_location)
+    if not preferred:
+        return leads
+    return sorted(
+        leads,
+        key=lambda lead: preferred not in _identity_part(lead.location or ""),
+    )
+
+
 def _build_sources(names: list[str], session: Session) -> tuple[list[JobSource], list[str]]:
     sources: list[JobSource] = []
     unknown: list[str] = []
