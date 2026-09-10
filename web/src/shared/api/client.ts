@@ -1,9 +1,11 @@
 import type {
   CandidateProfile,
+  ApplicationUpdate,
   DashboardStats,
   DiscoveryRun,
   JobLead,
   JobLeadStatus,
+  JobApplication,
   LeadMatch,
   ProfileCreate,
   SearchProfile,
@@ -69,4 +71,14 @@ export const api = {
   leadMatches: () => request<LeadMatch[]>("/api/jobs/leads/matches"),
   scoreLead: (leadId: number) =>
     request<LeadMatch>(`/api/jobs/leads/${leadId}/score`, { method: "POST" }),
+  applications: () => request<JobApplication[]>("/api/applications"),
+  prepareApplication: (leadMatchId: number) =>
+    request<JobApplication>(`/api/applications/from-match/${leadMatchId}`, { method: "POST" }),
+  updateApplication: (applicationId: number, payload: ApplicationUpdate) =>
+    request<JobApplication>(`/api/applications/${applicationId}`, {
+      method: "PUT",
+      body: JSON.stringify(payload),
+    }),
+  approveApplication: (applicationId: number) =>
+    request<JobApplication>(`/api/applications/${applicationId}/approve`, { method: "POST" }),
 };
