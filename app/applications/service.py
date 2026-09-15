@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Self
+from pathlib import Path
+from typing import Protocol, Self
 
 from pydantic import BaseModel, model_validator
 from sqlmodel import Session, col, select
@@ -49,6 +50,24 @@ class ApplicationDraftOutput(BaseModel):
 
 class ApplicationInputError(ValueError):
     """Başvuru taslağı için gerekli kullanıcı adımı veya veri eksik."""
+
+
+class GmailDraftResult(Protocol):
+    draft_id: str
+    thread_id: str | None
+
+
+class GmailDraftWriter(Protocol):
+    def upsert_draft(
+        self,
+        *,
+        recipient_email: str,
+        subject: str,
+        body: str,
+        cover_letter: str,
+        attachment_path: Path,
+        draft_id: str | None,
+    ) -> GmailDraftResult: ...
 
 
 def build_application_prompt(profile: Profile, lead: JobLead, match: LeadMatch) -> str:
@@ -127,12 +146,14 @@ def update_application(
     cover_letter: str,
     email_subject: str,
     email_body: str,
+    recipient_email: str = "",
 ) -> Application:
     application = _get_application(session, application_id)
     values = (cover_letter.strip(), email_subject.strip(), email_body.strip())
     if not all(values):
         raise ApplicationInputError("Başvuru alanları boş bırakılamaz")
     application.cover_letter, application.email_subject, application.email_body = values
+    application.recipient_email = _validate_recipient_email(recipient_email)
     application.status = ApplicationStatus.DRAFT
     session.add(application)
     session.commit()
@@ -142,13 +163,7 @@ def update_application(
 
 def approve_application(session: Session, application_id: int) -> Application:
     application = _get_application(session, application_id)
-    match = (
-        session.get(LeadMatch, application.lead_match_id)
-        if application.lead_match_id is not None
-        else None
-    )
-    if match is None or _naive_utc(match.updated_at) > _naive_utc(application.created_at):
-        raise ApplicationInputError("CV eşleştirmesi değişti; başvuru yeniden hazırlanmalı")
+    _require_current_match(session, application)
     if not all(
         (
             application.cover_letter.strip(),
@@ -158,6 +173,37 @@ def approve_application(session: Session, application_id: int) -> Application:
     ):
         raise ApplicationInputError("Eksik başvuru taslağı onaylanamaz")
     application.status = ApplicationStatus.APPROVED
+    session.add(application)
+    session.commit()
+    session.refresh(application)
+    return application
+
+
+def create_gmail_draft(
+    session: Session,
+    application_id: int,
+    writer: GmailDraftWriter,
+) -> Application:
+    application = _get_application(session, application_id)
+    if application.status is not ApplicationStatus.APPROVED:
+        raise ApplicationInputError("Gmail taslağı için önce başvuruyu onaylamalısın")
+    match = _require_current_match(session, application)
+    profile = session.get(Profile, match.profile_id)
+    if profile is None or not profile.cv_file_path:
+        raise ApplicationInputError("CV dosyası bulunamadı; CV'yi yeniden yükle")
+    recipient_email = _validate_recipient_email(application.recipient_email, required=True)
+
+    draft = writer.upsert_draft(
+        recipient_email=recipient_email,
+        subject=application.email_subject,
+        body=application.email_body,
+        cover_letter=application.cover_letter,
+        attachment_path=Path(profile.cv_file_path),
+        draft_id=application.gmail_draft_id,
+    )
+    application.gmail_draft_id = draft.draft_id
+    application.gmail_thread_id = draft.thread_id
+    application.channel = ApplyChannel.EMAIL
     session.add(application)
     session.commit()
     session.refresh(application)
@@ -175,6 +221,34 @@ def _get_application(session: Session, application_id: int) -> Application:
     if application is None:
         raise LookupError("Başvuru taslağı bulunamadı")
     return application
+
+
+def _require_current_match(session: Session, application: Application) -> LeadMatch:
+    match = (
+        session.get(LeadMatch, application.lead_match_id)
+        if application.lead_match_id is not None
+        else None
+    )
+    if match is None or _naive_utc(match.updated_at) > _naive_utc(application.created_at):
+        raise ApplicationInputError("CV eşleştirmesi değişti; başvuru yeniden hazırlanmalı")
+    return match
+
+
+def _validate_recipient_email(value: str, *, required: bool = False) -> str:
+    normalized = value.strip()
+    if not normalized and not required:
+        return ""
+    if (
+        not normalized
+        or len(normalized) > 320
+        or normalized.count("@") != 1
+        or any(character.isspace() for character in normalized)
+    ):
+        raise ApplicationInputError("Geçerli bir alıcı e-posta adresi girmelisin")
+    local_part, domain = normalized.rsplit("@", 1)
+    if not local_part or "." not in domain or domain.startswith(".") or domain.endswith("."):
+        raise ApplicationInputError("Geçerli bir alıcı e-posta adresi girmelisin")
+    return normalized
 
 
 def _naive_utc(value):

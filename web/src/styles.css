@@ -178,6 +178,8 @@ main { min-width: 0; padding: 0 44px 64px; }
 .match-gaps em { padding: 3px 6px; color: #75412d; background: rgba(255, 255, 255, .7); border: 1px solid rgba(177, 115, 83, .25); border-radius: 5px; font-size: 10px; font-style: normal; }
 .match-next-step .button { display: inline-flex; align-items: center; text-decoration: none; white-space: nowrap; }
 .application-list { display: grid; gap: 18px; }
+.gmail-connection { display: grid; justify-items: end; gap: 6px; color: var(--muted); font-size: 10px; text-align: right; }
+.gmail-connection .button { text-decoration: none; }
 .application-card { overflow: hidden; background: var(--surface); border: 1px solid var(--line); border-left: 4px solid #d99b2b; border-radius: 14px; box-shadow: 0 10px 30px rgba(26, 54, 93, .04); }
 .application-card--approved { border-left-color: var(--green); }
 .application-card__header { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; padding: 22px 24px; border-bottom: 1px solid var(--line); background: #fbfcfe; }
@@ -244,6 +246,7 @@ main { min-width: 0; padding: 0 44px 64px; }
   .application-field--wide { grid-column: auto; }
   .application-card__header, .application-card__footer { align-items: stretch; flex-direction: column; padding-inline: 18px; }
   .application-card__footer > div { flex-direction: column; }
+  .gmail-connection { justify-items: start; text-align: left; }
   .text-link { width: 100%; margin: 3px 0; }
 }
 
