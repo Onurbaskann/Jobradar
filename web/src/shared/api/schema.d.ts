@@ -244,6 +244,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/applications/gmail/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Gmail Status */
+        get: operations["get_gmail_status_api_applications_gmail_status_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/gmail/authorize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Authorize Gmail */
+        get: operations["authorize_gmail_api_applications_gmail_authorize_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/applications/{application_id}/gmail-draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create Application Gmail Draft */
+        post: operations["create_application_gmail_draft_api_applications__application_id__gmail_draft_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/health": {
         parameters: {
             query?: never;
@@ -317,6 +368,11 @@ export interface components {
         ApplicationUpdate: {
             /** Cover Letter */
             cover_letter: string;
+            /**
+             * Recipient Email
+             * @default
+             */
+            recipient_email: string;
             /** Email Subject */
             email_subject: string;
             /** Email Body */
@@ -334,12 +390,18 @@ export interface components {
             company_name: string;
             /** Cover Letter */
             cover_letter: string;
+            /** Recipient Email */
+            recipient_email: string;
             /** Email Subject */
             email_subject: string;
             /** Email Body */
             email_body: string;
             channel: components["schemas"]["ApplyChannel"];
             status: components["schemas"]["ApplicationStatus"];
+            /** Gmail Draft Id */
+            gmail_draft_id: string | null;
+            /** Gmail Thread Id */
+            gmail_thread_id: string | null;
             /**
              * Created At
              * Format: date-time
@@ -379,6 +441,13 @@ export interface components {
          * @enum {string}
          */
         DiscoveryRunStatus: "pending" | "running" | "completed" | "failed";
+        /** GmailConnectionView */
+        GmailConnectionView: {
+            /** Configured */
+            configured: boolean;
+            /** Connected */
+            connected: boolean;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -1024,6 +1093,77 @@ export interface operations {
         };
     };
     approve_application_draft_api_applications__application_id__approve_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                application_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApplicationView"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_gmail_status_api_applications_gmail_status_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GmailConnectionView"];
+                };
+            };
+        };
+    };
+    authorize_gmail_api_applications_gmail_authorize_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+        };
+    };
+    create_application_gmail_draft_api_applications__application_id__gmail_draft_post: {
         parameters: {
             query?: never;
             header?: never;

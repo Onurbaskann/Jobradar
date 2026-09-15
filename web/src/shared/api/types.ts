@@ -9,6 +9,7 @@ export type CandidateProfile = components["schemas"]["CandidateProfileView"];
 export type LeadMatch = components["schemas"]["LeadMatchView"];
 export type JobApplication = components["schemas"]["ApplicationView"];
 export type ApplicationUpdate = components["schemas"]["ApplicationUpdate"];
+export type GmailConnection = components["schemas"]["GmailConnectionView"];
 
 export interface DashboardStats {
   open_jobs: number;

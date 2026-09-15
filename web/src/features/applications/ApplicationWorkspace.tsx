@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import type {
   ApplicationUpdate,
+  GmailConnection,
   JobApplication,
   JobLead,
   LeadMatch,
@@ -16,6 +17,8 @@ interface ApplicationWorkspaceProps {
   onSave: (applicationId: number, payload: ApplicationUpdate) => Promise<boolean>;
   onApprove: (applicationId: number) => Promise<boolean>;
   onRegenerate: (leadMatchId: number) => Promise<void>;
+  gmailConnection: GmailConnection;
+  onCreateGmailDraft: (applicationId: number) => Promise<boolean>;
 }
 
 export function ApplicationWorkspace({
@@ -25,6 +28,8 @@ export function ApplicationWorkspace({
   onSave,
   onApprove,
   onRegenerate,
+  gmailConnection,
+  onCreateGmailDraft,
 }: ApplicationWorkspaceProps) {
   return (
     <section className="section" id="applications" aria-labelledby="applications-title">
@@ -33,6 +38,7 @@ export function ApplicationWorkspace({
           <span className="section-kicker">Başvuru masası</span>
           <h2 id="applications-title">Kontrol senden çıkmadan hazırla</h2>
         </div>
+        <GmailConnectionBadge connection={gmailConnection} />
       </div>
 
       {applications.length === 0 ? (
@@ -53,6 +59,8 @@ export function ApplicationWorkspace({
                 onSave={onSave}
                 onApprove={onApprove}
                 onRegenerate={onRegenerate}
+                gmailConnected={gmailConnection.connected}
+                onCreateGmailDraft={onCreateGmailDraft}
                 key={application.id}
               />
             );
@@ -70,6 +78,8 @@ function ApplicationEditor({
   onSave,
   onApprove,
   onRegenerate,
+  gmailConnected,
+  onCreateGmailDraft,
 }: {
   application: JobApplication;
   lead?: JobLead;
@@ -77,11 +87,14 @@ function ApplicationEditor({
   onSave: ApplicationWorkspaceProps["onSave"];
   onApprove: ApplicationWorkspaceProps["onApprove"];
   onRegenerate: ApplicationWorkspaceProps["onRegenerate"];
+  gmailConnected: boolean;
+  onCreateGmailDraft: ApplicationWorkspaceProps["onCreateGmailDraft"];
 }) {
   const [draft, setDraft] = useState<ApplicationUpdate>(fieldsOf(application));
-  const [busy, setBusy] = useState<"save" | "approve" | "regenerate" | null>(null);
+  const [busy, setBusy] = useState<"save" | "approve" | "regenerate" | "gmail" | null>(null);
   const stale =
     !match || new Date(match.updated_at).getTime() > new Date(application.created_at).getTime();
+  const dirty = !sameFields(draft, fieldsOf(application));
 
   useEffect(() => setDraft(fieldsOf(application)), [application]);
 
@@ -105,6 +118,12 @@ function ApplicationEditor({
     setBusy(null);
   }
 
+  async function createGmailDraft() {
+    setBusy("gmail");
+    await onCreateGmailDraft(application.id);
+    setBusy(null);
+  }
+
   return (
     <article className={`application-card application-card--${application.status}`}>
       <header className="application-card__header">
@@ -113,17 +132,31 @@ function ApplicationEditor({
           <h3>{lead?.title ?? application.job_title}</h3>
           {match && <small>CV uyumu {match.score}/100</small>}
         </div>
-        <StatusPill tone={!stale && application.status === "approved" ? "success" : "warning"}>
+        <StatusPill
+          tone={!stale && !dirty && application.status === "approved" ? "success" : "warning"}
+        >
           {stale
             ? "Yeniden hazırlanmalı"
-            : application.status === "approved"
-              ? "Onaylandı"
-              : "Taslak"}
+            : dirty
+              ? "Kaydedilmemiş değişiklik"
+              : application.status === "approved"
+                ? "Onaylandı"
+                : "Taslak"}
         </StatusPill>
       </header>
 
       <div className="application-fields">
-        <label className="application-field application-field--wide">
+        <label className="application-field">
+          <span>Alıcı e-posta</span>
+          <input
+            type="email"
+            value={draft.recipient_email ?? ""}
+            maxLength={320}
+            placeholder="ik@sirket.com"
+            onChange={(event) => setDraft({ ...draft, recipient_email: event.target.value })}
+          />
+        </label>
+        <label className="application-field">
           <span>E-posta konusu</span>
           <input
             value={draft.email_subject}
@@ -169,6 +202,34 @@ function ApplicationEditor({
           <Button disabled={busy !== null || stale} onClick={() => void approve()}>
             {busy === "approve" ? "Onaylanıyor…" : "Başvuruyu onayla"}
           </Button>
+          {gmailConnected && (
+            <Button
+              disabled={
+                busy !== null ||
+                stale ||
+                dirty ||
+                application.status !== "approved" ||
+                !(draft.recipient_email ?? "").trim()
+              }
+              onClick={() => void createGmailDraft()}
+            >
+              {busy === "gmail"
+                ? "Gmail hazırlanıyor…"
+                : application.gmail_draft_id
+                  ? "Gmail taslağını güncelle"
+                  : "Gmail taslağı oluştur"}
+            </Button>
+          )}
+          {application.gmail_draft_id && (
+            <a
+              className="button button--quiet"
+              href="https://mail.google.com/mail/u/0/#drafts"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Gmail'de aç ↗
+            </a>
+          )}
         </div>
       </footer>
     </article>
@@ -178,7 +239,44 @@ function ApplicationEditor({
 function fieldsOf(application: JobApplication): ApplicationUpdate {
   return {
     cover_letter: application.cover_letter,
+    recipient_email: application.recipient_email,
     email_subject: application.email_subject,
     email_body: application.email_body,
   };
+}
+
+function sameFields(left: ApplicationUpdate, right: ApplicationUpdate) {
+  return (
+    left.cover_letter === right.cover_letter &&
+    (left.recipient_email ?? "") === (right.recipient_email ?? "") &&
+    left.email_subject === right.email_subject &&
+    left.email_body === right.email_body
+  );
+}
+
+function GmailConnectionBadge({ connection }: { connection: GmailConnection }) {
+  if (connection.connected) {
+    return (
+      <div className="gmail-connection">
+        <StatusPill tone="success">Gmail bağlı</StatusPill>
+        <span>Onaylanan metin yalnızca taslaklara kaydedilir.</span>
+      </div>
+    );
+  }
+  if (connection.configured) {
+    return (
+      <div className="gmail-connection">
+        <a className="button button--quiet" href="/api/applications/gmail/authorize">
+          Gmail'i bağla
+        </a>
+        <span>Google iznini bir kez vermen yeterli.</span>
+      </div>
+    );
+  }
+  return (
+    <div className="gmail-connection">
+      <StatusPill tone="warning">Gmail ayarı gerekli</StatusPill>
+      <span>OAuth kimlik dosyasını secrets klasörüne ekle.</span>
+    </div>
+  );
 }

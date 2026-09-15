@@ -153,7 +153,7 @@ tarayıcı) gerekir; bu henüz kapsam dışı ve ayrı bir karar.
 | 2 | JSON-LD, sitemap, robots.txt, değişiklik tespiti | ✅ gerçek sitelerde ölçüldü |
 | 3 | Brave + yerel Qwen tespit ve çıkarım ajanları | ✅ Trendyol üzerinde canlı doğrulandı |
 | 4 | CV profili ve eşleştirme | ✅ Tek ilanı yerel Qwen ile puanlama hazır |
-| 5–6 | Başvuru taslağı, onay paneli ve gönderim | ⚠️ Taslak + onay hazır, gönderim bekliyor |
+| 5–6 | Başvuru taslağı, onay ve Gmail aktarımı | ✅ Gmail taslağı hazır; son gönderim kullanıcıda |
 | 7 | JobSpy keşfi, arama profilleri ve React ilan kutusu | ✅ ilk dikey dilim hazır |
 | 8 | Türkiye'ye özel portal arama adaptörleri ve deploy | ⚠️ adaptör canlı doğrulandı, deploy bekliyor |
 
@@ -186,6 +186,23 @@ pnpm build
 
 FastAPI çalışırken `pnpm generate:api`, ön yüz tiplerini canlı OpenAPI
 sözleşmesinden yeniden üretir.
+
+### Gmail bağlantısı
+
+Jobradar e-posta göndermez; onaylanan başvuruyu ve CV'yi Gmail'in Taslaklar
+klasörüne aktarır. Bağlamak için Google Cloud'da Gmail API'yi etkinleştir, OAuth
+izin ekranında kendi hesabını test kullanıcısı yap ve **Web application** türünde
+bir OAuth istemcisi oluştur. Yetkili yönlendirme adresi şu değerle birebir aynı
+olmalı:
+
+```text
+http://localhost:8000/api/applications/gmail/callback
+```
+
+İndirilen JSON dosyasını `secrets/gmail_client_secret.json` olarak kaydet ve
+uygulamayı yeniden başlat. Ardından Başvuru masasında **Gmail'i bağla** düğmesini
+kullan. OAuth tokenı `secrets/gmail_token.json` içinde tutulur; `secrets/` Git'e
+eklenmez.
 
 Eşleştirme adımı (Faz 4) yerel gömme modeli kullanır ve torch çeker; çekirdek
 tarayıcı onsuz çalışsın diye ayrı tutuldu:

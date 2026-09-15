@@ -232,6 +232,7 @@ class Application(SQLModel, table=True):
 
     tailored_cv_path: str | None = None
     cover_letter: str = ""
+    recipient_email: str = ""
     email_subject: str = ""
     email_body: str = ""
 

@@ -12,6 +12,7 @@ import type {
   DiscoveryRun,
   JobLead,
   JobApplication,
+  GmailConnection,
   LeadMatch,
   ProfileCreate,
   SearchProfile,
@@ -27,6 +28,10 @@ export function App() {
   const [leads, setLeads] = useState<JobLead[]>([]);
   const [matches, setMatches] = useState<LeadMatch[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
+  const [gmailConnection, setGmailConnection] = useState<GmailConnection>({
+    configured: false,
+    connected: false,
+  });
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,18 +40,21 @@ export function App() {
   const [preparingMatchId, setPreparingMatchId] = useState<number | null>(null);
 
   const refreshData = useCallback(async (profileId?: number) => {
-    const [nextLeads, nextStats, nextRun, nextMatches, nextApplications] = await Promise.all([
-      api.leads(PREFERRED_LOCATION),
-      api.stats(),
-      api.latestRun(profileId),
-      api.leadMatches(),
-      api.applications(),
-    ]);
+    const [nextLeads, nextStats, nextRun, nextMatches, nextApplications, nextGmail] =
+      await Promise.all([
+        api.leads(PREFERRED_LOCATION),
+        api.stats(),
+        api.latestRun(profileId),
+        api.leadMatches(),
+        api.applications(),
+        api.gmailStatus(),
+      ]);
     setLeads(nextLeads);
     setStats(nextStats);
     setRun(nextRun);
     setMatches(nextMatches);
     setApplications(nextApplications);
+    setGmailConnection(nextGmail);
   }, []);
 
   useEffect(() => {
@@ -214,6 +222,17 @@ export function App() {
     }
   }
 
+  async function createGmailDraft(applicationId: number) {
+    try {
+      setError(null);
+      replaceApplication(await api.createGmailDraft(applicationId));
+      return true;
+    } catch (cause) {
+      setError(messageOf(cause));
+      return false;
+    }
+  }
+
   function replaceApplication(application: JobApplication) {
     setApplications((current) =>
       current.map((item) => (item.id === application.id ? application : item)),
@@ -303,6 +322,8 @@ export function App() {
           onSave={saveApplication}
           onApprove={approveApplication}
           onRegenerate={prepareApplication}
+          gmailConnection={gmailConnection}
+          onCreateGmailDraft={createGmailDraft}
         />
       </main>
     </div>

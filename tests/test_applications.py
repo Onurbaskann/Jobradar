@@ -11,6 +11,7 @@ from app.applications.service import (
     ApplicationInputError,
     approve_application,
     build_application_prompt,
+    create_gmail_draft,
     prepare_application,
     update_application,
 )
@@ -101,6 +102,7 @@ def _application() -> Application:
         job_title="Backend Developer",
         company_name="Örnek AŞ",
         cover_letter="Ön yazı",
+        recipient_email="ik@example.com",
         email_subject="Konu",
         email_body="Mesaj",
     )
@@ -196,6 +198,51 @@ def test_rejects_blank_application_update() -> None:
             cover_letter=" ",
             email_subject="Konu",
             email_body="Mesaj",
+        )
+
+
+def test_creates_gmail_draft_only_after_approval(tmp_path) -> None:
+    application = _application()
+    application.status = ApplicationStatus.APPROVED
+    session = _Session(application=application)
+    cv_path = tmp_path / "cv.pdf"
+    cv_path.write_bytes(b"pdf")
+    session.profile.cv_file_path = str(cv_path)
+
+    class Writer:
+        def upsert_draft(self, **kwargs):
+            self.kwargs = kwargs
+            return SimpleNamespace(draft_id="draft-1", thread_id="thread-1")
+
+    writer = Writer()
+    updated = create_gmail_draft(session, 7, writer)  # type: ignore[arg-type]
+
+    assert writer.kwargs["recipient_email"] == "ik@example.com"
+    assert writer.kwargs["attachment_path"] == cv_path
+    assert updated.gmail_draft_id == "draft-1"
+    assert updated.gmail_thread_id == "thread-1"
+    assert updated.channel.value == "email"
+    assert updated.status is ApplicationStatus.APPROVED
+
+
+def test_rejects_gmail_draft_before_application_approval(tmp_path) -> None:
+    session = _Session(application=_application())
+
+    with pytest.raises(ApplicationInputError, match="önce başvuruyu onaylamalısın"):
+        create_gmail_draft(session, 7, object())  # type: ignore[arg-type]
+
+
+def test_rejects_invalid_recipient_email() -> None:
+    session = _Session(application=_application())
+
+    with pytest.raises(ApplicationInputError, match="Geçerli bir alıcı"):
+        update_application(
+            session,  # type: ignore[arg-type]
+            7,
+            cover_letter="Ön yazı",
+            email_subject="Konu",
+            email_body="Mesaj",
+            recipient_email="geçersiz",
         )
 
 

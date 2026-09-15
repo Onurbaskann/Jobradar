@@ -6,6 +6,7 @@ import type {
   JobLead,
   JobLeadStatus,
   JobApplication,
+  GmailConnection,
   LeadMatch,
   ProfileCreate,
   SearchProfile,
@@ -81,4 +82,9 @@ export const api = {
     }),
   approveApplication: (applicationId: number) =>
     request<JobApplication>(`/api/applications/${applicationId}/approve`, { method: "POST" }),
+  gmailStatus: () => request<GmailConnection>("/api/applications/gmail/status"),
+  createGmailDraft: (applicationId: number) =>
+    request<JobApplication>(`/api/applications/${applicationId}/gmail-draft`, {
+      method: "POST",
+    }),
 };
