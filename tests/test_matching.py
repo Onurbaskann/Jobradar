@@ -11,6 +11,7 @@ from app.matching.service import (
     MatchInputError,
     build_match_prompt,
     score_lead,
+    score_unmatched_leads,
 )
 from app.models import JobLead, LeadMatch, Profile
 
@@ -20,6 +21,9 @@ class _Result:
         self.value = value
 
     def first(self):
+        return self.value
+
+    def all(self):
         return self.value
 
 
@@ -126,6 +130,39 @@ def test_requires_a_useful_job_description() -> None:
     lead.description_md = "Kısa açıklama"
     with pytest.raises(MatchInputError, match="yeterli açıklaması"):
         score_lead(_Session(_profile(), lead), 2)  # type: ignore[arg-type]
+
+
+def test_automatic_matching_isolates_bad_leads(monkeypatch) -> None:
+    successful = _lead()
+    failing = _lead()
+    failing.id = 3
+    skipped = _lead()
+    skipped.id = 4
+    skipped.description_md = "Kısa"
+
+    class BatchSession:
+        def __init__(self):
+            self.results = iter([_Result(_profile()), _Result([successful, failing, skipped])])
+
+        def exec(self, _query):
+            return next(self.results)
+
+    scored_ids = []
+
+    def fake_score(_session, lead_id):
+        if lead_id == 3:
+            raise AgentError("model geçici olarak kullanılamıyor")
+        scored_ids.append(lead_id)
+
+    monkeypatch.setattr("app.matching.service.score_lead", fake_score)
+
+    summary = score_unmatched_leads(BatchSession(), limit=20)  # type: ignore[arg-type]
+
+    assert scored_ids == [2]
+    assert summary.considered == 3
+    assert summary.scored == 1
+    assert summary.skipped == 1
+    assert summary.failed == 1
 
 
 def test_matching_api_hides_provider_details(monkeypatch) -> None:

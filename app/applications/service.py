@@ -8,6 +8,7 @@ from sqlmodel import Session, col, select
 
 from app.agents.client import call_structured
 from app.config import get_settings
+from app.matching.service import MIN_APPLICATION_SCORE
 from app.models import (
     Application,
     ApplicationStatus,
@@ -104,6 +105,10 @@ def prepare_application(session: Session, lead_match_id: int) -> Application:
         raise LookupError("İlan bulunamadı")
     if lead.status is not JobLeadStatus.SHORTLISTED:
         raise ApplicationInputError("Başvuru hazırlamadan önce ilanı kısa listeye almalısın")
+    if match.score < MIN_APPLICATION_SCORE:
+        raise ApplicationInputError(
+            f"Uyum puanı {MIN_APPLICATION_SCORE} altında olan ilanlar için başvuru hazırlanamaz"
+        )
     profile = session.get(Profile, match.profile_id)
     if profile is None or not profile.cv_text.strip():
         raise ApplicationInputError("CV profili bulunamadı")

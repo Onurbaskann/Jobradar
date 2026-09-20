@@ -4,16 +4,18 @@ import asyncio
 import re
 import unicodedata
 
-from sqlmodel import Session, select
+from sqlmodel import Session, delete, select
 
 from app.config import get_settings
 from app.db import get_engine
 from app.discovery.contracts import DiscoveredJob, JobSource, SearchQuery
 from app.discovery.sources import JobSpySource, TrackedJobsSource, TurkiyeWebSource
+from app.matching.service import score_unmatched_leads
 from app.models import (
     DiscoveryRun,
     DiscoveryRunStatus,
     JobLead,
+    LeadMatch,
     SearchProfile,
     utcnow,
 )
@@ -83,6 +85,20 @@ async def _execute_discovery_run(run_id: int) -> None:
                     "status": "failed",
                     "error": f"{type(exc).__name__}: {str(exc)[:240]}",
                 }
+
+        if successful_sources:
+            settings = get_settings()
+            matching = score_unmatched_leads(
+                session,
+                limit=settings.automatic_match_limit,
+            )
+            source_results["automatic_matching"] = {
+                "status": "completed" if matching.failed == 0 else "partial",
+                "considered": matching.considered,
+                "scored": matching.scored,
+                "skipped": matching.skipped,
+                "failed": matching.failed,
+            }
 
         run.source_results = source_results
         run.found_count = len(fingerprints)
@@ -182,8 +198,15 @@ def _store_jobs(
         else:
             existing.location = job.location or existing.location
             existing.remote_type = job.remote_type
-            if len(job.description_md) > len(existing.description_md):
+            if (
+                len(job.description_md) > len(existing.description_md)
+                and job.description_md != existing.description_md
+            ):
                 existing.description_md = job.description_md
+                if existing.id is not None:
+                    session.exec(
+                        delete(LeadMatch).where(LeadMatch.lead_id == existing.id)
+                    )
             existing.apply_url = job.apply_url or existing.apply_url
             existing.posted_at = job.posted_at or existing.posted_at
             existing.sources = sorted(set(existing.sources) | {job.source})
