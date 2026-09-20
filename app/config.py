@@ -36,7 +36,7 @@ class Settings(BaseSettings):
     delivery_dry_run: bool = True
     gmail_credentials_path: str = "./secrets/gmail_client_secret.json"
     gmail_token_path: str = "./secrets/gmail_token.json"
-    gmail_redirect_uri: str = "http://localhost:8000/api/integrations/gmail/callback"
+    gmail_redirect_uri: str = "http://localhost:8000/api/applications/gmail/callback"
 
     embedding_model: str = "intfloat/multilingual-e5-base"
     embedding_dim: int = 768
