@@ -52,10 +52,13 @@ export const api = {
       `/api/discovery/runs/latest${profileId ? `?profile_id=${profileId}` : ""}`,
     ),
   run: (runId: number) => request<DiscoveryRun>(`/api/discovery/runs/${runId}`),
-  startRun: (profileId: number) =>
+  startRun: (profileId: number, reevaluateExisting = false) =>
     request<DiscoveryRun>("/api/discovery/runs", {
       method: "POST",
-      body: JSON.stringify({ profile_id: profileId }),
+      body: JSON.stringify({
+        profile_id: profileId,
+        reevaluate_existing: reevaluateExisting,
+      }),
     }),
   leads: (preferredLocation?: string, status?: JobLeadStatus) => {
     const params = new URLSearchParams();

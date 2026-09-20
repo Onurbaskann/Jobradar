@@ -18,8 +18,6 @@ import type {
   SearchProfile,
 } from "../shared/api/types";
 
-const PREFERRED_LOCATION = "İzmir";
-
 export function App() {
   const today = new Date();
   const [profiles, setProfiles] = useState<SearchProfile[]>([]);
@@ -39,10 +37,10 @@ export function App() {
   const [scoringLeadId, setScoringLeadId] = useState<number | null>(null);
   const [preparingMatchId, setPreparingMatchId] = useState<number | null>(null);
 
-  const refreshData = useCallback(async (profileId?: number) => {
+  const refreshData = useCallback(async (profileId?: number, preferredLocation?: string) => {
     const [nextLeads, nextStats, nextRun, nextMatches, nextApplications, nextGmail] =
       await Promise.all([
-        api.leads(PREFERRED_LOCATION),
+        api.leads(preferredLocation),
         api.stats(),
         api.latestRun(profileId),
         api.leadMatches(),
@@ -66,11 +64,12 @@ export function App() {
           api.candidateProfile(),
         ]);
         if (!active) return;
-        const firstId = nextProfiles[0]?.id ?? null;
+        const firstProfile = nextProfiles[0];
+        const firstId = firstProfile?.id ?? null;
         setProfiles(nextProfiles);
         setSelectedProfileId(firstId);
         setCandidateProfile(nextCandidateProfile);
-        await refreshData(firstId ?? undefined);
+        await refreshData(firstId ?? undefined, firstProfile?.location);
       } catch (cause) {
         if (active) setError(messageOf(cause));
       } finally {
@@ -90,14 +89,15 @@ export function App() {
         const nextRun = await api.run(run.id);
         setRun(nextRun);
         if (["completed", "failed"].includes(nextRun.status)) {
-          await refreshData(selectedProfileId ?? undefined);
+          const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
+          await refreshData(selectedProfileId ?? undefined, selectedProfile?.location);
         }
       } catch (cause) {
         setError(messageOf(cause));
       }
     }, 1600);
     return () => window.clearTimeout(timer);
-  }, [refreshData, run, selectedProfileId]);
+  }, [profiles, refreshData, run, selectedProfileId]);
 
   async function createProfile(payload: ProfileCreate) {
     try {
@@ -111,11 +111,11 @@ export function App() {
     }
   }
 
-  async function startDiscovery() {
+  async function startDiscovery(reevaluateExisting: boolean) {
     if (!selectedProfileId) return;
     try {
       setError(null);
-      setRun(await api.startRun(selectedProfileId));
+      setRun(await api.startRun(selectedProfileId, reevaluateExisting));
     } catch (cause) {
       setError(messageOf(cause));
     }
@@ -125,6 +125,8 @@ export function App() {
     setSelectedProfileId(profileId);
     try {
       setRun(await api.latestRun(profileId));
+      const selectedProfile = profiles.find((profile) => profile.id === profileId);
+      setLeads(await api.leads(selectedProfile?.location));
     } catch (cause) {
       setError(messageOf(cause));
     }
@@ -158,7 +160,8 @@ export function App() {
     try {
       setError(null);
       setCandidateProfile(await api.uploadCandidateProfile(name, file));
-      await refreshData(selectedProfileId ?? undefined);
+      const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
+      await refreshData(selectedProfileId ?? undefined, selectedProfile?.location);
       return true;
     } catch (cause) {
       setError(messageOf(cause));
@@ -303,7 +306,9 @@ export function App() {
         <JobInbox
           leads={leads}
           matches={matches}
-          preferredLocation={PREFERRED_LOCATION}
+          preferredLocation={
+            profiles.find((profile) => profile.id === selectedProfileId)?.location ?? "Türkiye"
+          }
           loading={loading}
           profileReady={candidateProfile !== null}
           scoringLeadId={scoringLeadId}

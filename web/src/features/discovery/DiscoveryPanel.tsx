@@ -12,7 +12,7 @@ interface DiscoveryPanelProps {
   onCreateProfile: (profile: ProfileCreate) => Promise<void>;
   onSelectProfile: (profileId: number) => Promise<void>;
   onEnableSource: (profileId: number, source: string) => Promise<void>;
-  onStart: () => Promise<void>;
+  onStart: (reevaluateExisting: boolean) => Promise<void>;
 }
 
 const initialProfile: ProfileCreate = {
@@ -37,6 +37,7 @@ export function DiscoveryPanel({
 }: DiscoveryPanelProps) {
   const [draft, setDraft] = useState(initialProfile);
   const [saving, setSaving] = useState(false);
+  const [reevaluateExisting, setReevaluateExisting] = useState(false);
   const running = run?.status === "pending" || run?.status === "running";
   const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
   const selectedSources = selectedProfile?.sources ?? [];
@@ -95,9 +96,24 @@ export function DiscoveryPanel({
           </div>
           <div className="run-action">
             <span>{run ? runSummary(run) : "Henüz keşif çalışması yok."}</span>
-            <Button onClick={() => void onStart()} disabled={!selectedProfileId || running}>
-              {running ? "Radar tarıyor…" : "Taramayı başlat"}
-            </Button>
+            <div className="run-controls">
+              <label className="reevaluate-toggle">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={reevaluateExisting}
+                  disabled={running}
+                  onChange={(event) => setReevaluateExisting(event.target.checked)}
+                />
+                <span>İlk 20 ilanı yeniden değerlendir</span>
+              </label>
+              <Button
+                onClick={() => void onStart(reevaluateExisting)}
+                disabled={!selectedProfileId || running}
+              >
+                {running ? "Radar tarıyor…" : "Taramayı başlat"}
+              </Button>
+            </div>
           </div>
         </div>
       )}

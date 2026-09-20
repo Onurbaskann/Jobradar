@@ -53,6 +53,7 @@ class ProfileView(ProfileCreate):
 
 class RunCreate(BaseModel):
     profile_id: int
+    reevaluate_existing: bool = False
 
 
 class ProfileSourcesUpdate(BaseModel):
@@ -148,7 +149,11 @@ def start_run(
         run = create_run(session, payload.profile_id)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
-    background_tasks.add_task(execute_discovery_run, run.id)
+    background_tasks.add_task(
+        execute_discovery_run,
+        run.id,
+        payload.reevaluate_existing,
+    )
     return run
 
 

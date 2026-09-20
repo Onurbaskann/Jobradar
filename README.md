@@ -162,10 +162,12 @@ korunuyor. Varsayılan akış Brave Search ve yerel Ollama/Qwen kullanır;
 `ANTHROPIC_API_KEY` gerekmez. Anthropic sağlayıcısı yalnız isteğe bağlıdır ve
 `pip install -e ".[cloud]"` ile ayrıca kurulabilir.
 
-Her keşif çalışması sonunda en yeni ve henüz değerlendirilmemiş ilanlar yerel
-Qwen ile sırayla puanlanır. Varsayılan batch sınırı 20 ilandır ve
+Her keşif çalışması sonunda o taramada bulunan ilanlar, seçilen arama profilinin
+konumuna göre önceliklendirilir. İlk 20 uygun ilan yerel Qwen ile sırayla
+puanlanır; daha önce puanlananlar varsayılan olarak atlanır. Tarama ekranındaki
+anahtar açılırsa ilk 20 içindeki mevcut sonuçlar da yenilenir. Batch sınırı
 `AUTOMATIC_MATCH_LIMIT` ile değiştirilebilir. `50` puanın altındaki ilanlar için
-başvuru taslağı hazırlanmaz; manuel yeniden değerlendirme seçeneği korunur.
+başvuru taslağı hazırlanmaz; ilan bazlı manuel değerlendirme de korunur.
 
 ## Geliştirme
 

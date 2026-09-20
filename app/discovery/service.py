@@ -4,17 +4,19 @@ import asyncio
 import re
 import unicodedata
 
-from sqlmodel import Session, delete, select
+from sqlalchemy import func
+from sqlmodel import Session, col, delete, select
 
 from app.config import get_settings
 from app.db import get_engine
 from app.discovery.contracts import DiscoveredJob, JobSource, SearchQuery
 from app.discovery.sources import JobSpySource, TrackedJobsSource, TurkiyeWebSource
-from app.matching.service import score_unmatched_leads
+from app.matching.service import MIN_JOB_DESCRIPTION_CHARS, score_prioritized_leads
 from app.models import (
     DiscoveryRun,
     DiscoveryRunStatus,
     JobLead,
+    JobLeadStatus,
     LeadMatch,
     SearchProfile,
     utcnow,
@@ -33,12 +35,15 @@ def create_run(session: Session, profile_id: int) -> DiscoveryRun:
     return run
 
 
-def execute_discovery_run(run_id: int) -> None:
+def execute_discovery_run(run_id: int, reevaluate_existing: bool = False) -> None:
     """FastAPI BackgroundTasks için senkron giriş noktası."""
-    asyncio.run(_execute_discovery_run(run_id))
+    asyncio.run(_execute_discovery_run(run_id, reevaluate_existing))
 
 
-async def _execute_discovery_run(run_id: int) -> None:
+async def _execute_discovery_run(
+    run_id: int,
+    reevaluate_existing: bool = False,
+) -> None:
     with Session(get_engine()) as session:
         run = session.get(DiscoveryRun, run_id)
         if run is None:
@@ -88,9 +93,27 @@ async def _execute_discovery_run(run_id: int) -> None:
 
         if successful_sources:
             settings = get_settings()
-            matching = score_unmatched_leads(
+            matching_candidates = list(
+                session.exec(
+                    select(JobLead)
+                    .where(
+                        JobLead.last_run_id == run.id,
+                        col(JobLead.status) != JobLeadStatus.DISMISSED,
+                        func.length(func.trim(JobLead.description_md))
+                        >= MIN_JOB_DESCRIPTION_CHARS,
+                    )
+                    .order_by(col(JobLead.first_seen_at).desc())
+                ).all()
+            )
+            matching_candidates = prioritize_leads_by_location(
+                matching_candidates,
+                profile.location,
+            )
+            matching = score_prioritized_leads(
                 session,
+                matching_candidates,
                 limit=settings.automatic_match_limit,
+                reevaluate_existing=reevaluate_existing,
             )
             source_results["automatic_matching"] = {
                 "status": "completed" if matching.failed == 0 else "partial",
