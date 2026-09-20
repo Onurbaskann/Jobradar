@@ -106,6 +106,14 @@ main { min-width: 0; padding: 0 44px 64px; }
 .source--active > span { color: #fff; border-color: var(--green); background: var(--green); }
 .run-action { grid-column: 1 / -1; min-height: 66px; display: flex; align-items: center; justify-content: space-between; gap: 18px; padding: 14px 18px 14px 26px; border-top: 1px solid var(--line); background: #f9fbfd; border-radius: 0 0 14px 14px; }
 .run-action > span { color: var(--muted); font-size: 12px; }
+.run-controls { display: flex; align-items: center; gap: 14px; }
+.reevaluate-toggle { display: inline-flex; align-items: center; gap: 8px; color: #43556b; font-size: 11px; font-weight: 700; cursor: pointer; }
+.reevaluate-toggle input { position: relative; width: 34px; height: 18px; margin: 0; appearance: none; border: 1px solid #aebdcd; border-radius: 999px; background: #dce4ec; cursor: pointer; transition: background .15s ease, border-color .15s ease; }
+.reevaluate-toggle input::before { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px rgba(20, 42, 68, .24); transition: transform .15s ease; }
+.reevaluate-toggle input:checked { border-color: var(--blue); background: var(--blue); }
+.reevaluate-toggle input:checked::before { transform: translateX(16px); }
+.reevaluate-toggle input:focus-visible { outline: 3px solid rgba(47, 107, 255, .25); outline-offset: 2px; }
+.reevaluate-toggle:has(input:disabled) { opacity: .55; cursor: not-allowed; }
 .button { min-height: 38px; padding: 9px 14px; border: 1px solid transparent; border-radius: 8px; cursor: pointer; font-size: 12px; font-weight: 800; transition: transform .15s ease, background .15s ease, border-color .15s ease; }
 .button:hover:not(:disabled) { transform: translateY(-1px); }
 .button:disabled { opacity: .55; cursor: not-allowed; }
@@ -237,6 +245,8 @@ main { min-width: 0; padding: 0 44px 64px; }
   .cv-signal { min-height: 190px; border-left: 0; border-top: 1px solid var(--line); }
   .source-lane { padding-inline: 14px; }
   .run-action { align-items: stretch; flex-direction: column; padding: 15px; }
+  .run-controls { align-items: stretch; flex-direction: column; }
+  .reevaluate-toggle { min-height: 38px; }
   .job-row { grid-template-columns: 38px minmax(0, 1fr); gap: 12px; padding: 17px 14px; }
   .company-token { width: 38px; height: 38px; }
   .job-actions { grid-column: 1 / -1; }

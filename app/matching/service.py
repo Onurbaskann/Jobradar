@@ -4,13 +4,12 @@ import logging
 from dataclasses import dataclass
 
 from pydantic import BaseModel, Field
-from sqlalchemy import func
 from sqlmodel import Session, col, select
 
 from app.agents.client import AgentError, call_structured
 from app.agents.providers import describe
 from app.config import get_settings
-from app.models import JobLead, JobLeadStatus, LeadMatch, Profile, utcnow
+from app.models import JobLead, LeadMatch, Profile, utcnow
 
 MAX_MATCH_TEXT_CHARS = 12_000
 MIN_JOB_DESCRIPTION_CHARS = 80
@@ -116,8 +115,14 @@ def score_lead(session: Session, lead_id: int) -> LeadMatch:
     return match
 
 
-def score_unmatched_leads(session: Session, *, limit: int) -> AutomaticMatchSummary:
-    """En yeni puanlanmamış ilanları sırayla değerlendirir.
+def score_prioritized_leads(
+    session: Session,
+    leads: list[JobLead],
+    *,
+    limit: int,
+    reevaluate_existing: bool = False,
+) -> AutomaticMatchSummary:
+    """Öncelik sırası verilmiş ilanların ilk bölümünü değerlendirir.
 
     Model veya ilan girdisi hatası yalnızca ilgili ilanı etkiler. Veritabanı
     hataları ise oturumu geçersiz bırakabileceği için burada gizlenmez.
@@ -128,27 +133,25 @@ def score_unmatched_leads(session: Session, *, limit: int) -> AutomaticMatchSumm
     if profile is None or profile.id is None or not profile.cv_text.strip():
         return AutomaticMatchSummary()
 
-    candidates = list(
-        session.exec(
-            select(JobLead)
-            .outerjoin(
-                LeadMatch,
-                (LeadMatch.lead_id == JobLead.id)
-                & (LeadMatch.profile_id == profile.id),
-            )
-            .where(
-                col(LeadMatch.id).is_(None),
-                col(JobLead.status) != JobLeadStatus.DISMISSED,
-                func.length(func.trim(JobLead.description_md))
-                >= MIN_JOB_DESCRIPTION_CHARS,
-            )
-            .order_by(col(JobLead.first_seen_at).desc())
-            .limit(limit)
-        ).all()
-    )
+    candidates = leads[:limit]
+    matched_lead_ids: set[int] = set()
+    candidate_ids = [lead.id for lead in candidates if lead.id is not None]
+    if candidate_ids and not reevaluate_existing:
+        matched_lead_ids = set(
+            session.exec(
+                select(LeadMatch.lead_id).where(
+                    LeadMatch.profile_id == profile.id,
+                    col(LeadMatch.lead_id).in_(candidate_ids),
+                )
+            ).all()
+        )
+
     scored = skipped = failed = 0
     for lead in candidates:
         if lead.id is None or len(lead.description_md.strip()) < MIN_JOB_DESCRIPTION_CHARS:
+            skipped += 1
+            continue
+        if lead.id in matched_lead_ids:
             skipped += 1
             continue
         try:

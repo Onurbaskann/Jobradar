@@ -7,11 +7,12 @@ from app.agents.client import AgentError
 from app.matching import api
 from app.matching.service import (
     MAX_MATCH_TEXT_CHARS,
+    AutomaticMatchSummary,
     LeadScoreOutput,
     MatchInputError,
     build_match_prompt,
     score_lead,
-    score_unmatched_leads,
+    score_prioritized_leads,
 )
 from app.models import JobLead, LeadMatch, Profile
 
@@ -132,7 +133,7 @@ def test_requires_a_useful_job_description() -> None:
         score_lead(_Session(_profile(), lead), 2)  # type: ignore[arg-type]
 
 
-def test_automatic_matching_isolates_bad_leads(monkeypatch) -> None:
+def test_prioritized_matching_skips_existing_and_isolates_bad_leads(monkeypatch) -> None:
     successful = _lead()
     failing = _lead()
     failing.id = 3
@@ -142,7 +143,7 @@ def test_automatic_matching_isolates_bad_leads(monkeypatch) -> None:
 
     class BatchSession:
         def __init__(self):
-            self.results = iter([_Result(_profile()), _Result([successful, failing, skipped])])
+            self.results = iter([_Result(_profile()), _Result([successful.id])])
 
         def exec(self, _query):
             return next(self.results)
@@ -156,13 +157,71 @@ def test_automatic_matching_isolates_bad_leads(monkeypatch) -> None:
 
     monkeypatch.setattr("app.matching.service.score_lead", fake_score)
 
-    summary = score_unmatched_leads(BatchSession(), limit=20)  # type: ignore[arg-type]
+    summary = score_prioritized_leads(  # type: ignore[arg-type]
+        BatchSession(),
+        [successful, failing, skipped],
+        limit=20,
+    )
+
+    assert scored_ids == []
+    assert summary.considered == 3
+    assert summary.scored == 0
+    assert summary.skipped == 2
+    assert summary.failed == 1
+
+
+def test_prioritized_matching_reevaluates_existing_leads(monkeypatch) -> None:
+    first = _lead()
+    second = _lead()
+    second.id = 3
+
+    class BatchSession:
+        def exec(self, _query):
+            return _Result(_profile())
+
+    scored_ids = []
+    monkeypatch.setattr(
+        "app.matching.service.score_lead",
+        lambda _session, lead_id: scored_ids.append(lead_id),
+    )
+
+    summary = score_prioritized_leads(  # type: ignore[arg-type]
+        BatchSession(),
+        [first, second],
+        limit=1,
+        reevaluate_existing=True,
+    )
 
     assert scored_ids == [2]
-    assert summary.considered == 3
-    assert summary.scored == 1
-    assert summary.skipped == 1
-    assert summary.failed == 1
+    assert summary == AutomaticMatchSummary(considered=1, scored=1)
+
+
+def test_prioritized_matching_does_not_backfill_beyond_limit(monkeypatch) -> None:
+    existing = _lead()
+    next_lead = _lead()
+    next_lead.id = 3
+
+    class BatchSession:
+        def __init__(self):
+            self.results = iter([_Result(_profile()), _Result([existing.id])])
+
+        def exec(self, _query):
+            return next(self.results)
+
+    scored_ids = []
+    monkeypatch.setattr(
+        "app.matching.service.score_lead",
+        lambda _session, lead_id: scored_ids.append(lead_id),
+    )
+
+    summary = score_prioritized_leads(  # type: ignore[arg-type]
+        BatchSession(),
+        [existing, next_lead],
+        limit=1,
+    )
+
+    assert scored_ids == []
+    assert summary == AutomaticMatchSummary(considered=1, skipped=1)
 
 
 def test_matching_api_hides_provider_details(monkeypatch) -> None:

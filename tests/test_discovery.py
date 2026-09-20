@@ -5,7 +5,9 @@ from types import SimpleNamespace
 import httpx
 import pytest
 import respx
+from fastapi import BackgroundTasks
 
+from app.discovery import api as discovery_api
 from app.discovery.contracts import DiscoveredJob, SearchQuery
 from app.discovery.service import (
     _execute_discovery_run,
@@ -79,6 +81,22 @@ def test_location_priority_handles_missing_location() -> None:
     assert [lead.fingerprint for lead in prioritized] == ["2", "1"]
 
 
+def test_start_run_forwards_reevaluation_choice(monkeypatch) -> None:
+    run = DiscoveryRun(id=8, profile_id=3)
+    tasks = BackgroundTasks()
+    monkeypatch.setattr(discovery_api, "create_run", lambda _session, _profile_id: run)
+
+    result = discovery_api.start_run(
+        discovery_api.RunCreate(profile_id=3, reevaluate_existing=True),
+        tasks,
+        object(),  # type: ignore[arg-type]
+    )
+
+    assert result is run
+    assert len(tasks.tasks) == 1
+    assert tasks.tasks[0].args == (8, True)
+
+
 def test_changed_description_invalidates_existing_match() -> None:
     job = DiscoveredJob(
         source="jobspy",
@@ -129,9 +147,31 @@ def test_changed_description_invalidates_existing_match() -> None:
 
 
 @pytest.mark.asyncio
-async def test_completed_discovery_automatically_scores_unmatched_leads(monkeypatch) -> None:
+async def test_completed_discovery_scores_location_first_and_forwards_reevaluation(
+    monkeypatch,
+) -> None:
     run = DiscoveryRun(id=1, profile_id=2)
-    profile = SearchProfile(id=2, name="Backend", query="Python")
+    profile = SearchProfile(id=2, name="Backend", query="Python", location="İzmir")
+    ankara = JobLead(
+        id=10,
+        fingerprint="ankara",
+        title="Backend Developer",
+        company_name="A",
+        location="Ankara",
+        description_md="Ayrıntılı ilan açıklaması " * 5,
+    )
+    izmir = JobLead(
+        id=11,
+        fingerprint="izmir",
+        title="Backend Developer",
+        company_name="B",
+        location="Izmir, Türkiye",
+        description_md="Ayrıntılı ilan açıklaması " * 5,
+    )
+
+    class Result:
+        def all(self):
+            return [ankara, izmir]
 
     class Session:
         def __init__(self, _engine):
@@ -153,6 +193,9 @@ async def test_completed_discovery_automatically_scores_unmatched_leads(monkeypa
         def commit(self):
             pass
 
+        def exec(self, _query):
+            return Result()
+
     class Source:
         name = "test"
 
@@ -161,8 +204,14 @@ async def test_completed_discovery_automatically_scores_unmatched_leads(monkeypa
 
     calls = []
 
-    def fake_score(_session, *, limit):
-        calls.append(limit)
+    def fake_score(_session, leads, *, limit, reevaluate_existing):
+        calls.append(
+            {
+                "lead_ids": [lead.id for lead in leads],
+                "limit": limit,
+                "reevaluate_existing": reevaluate_existing,
+            }
+        )
         return AutomaticMatchSummary(considered=2, scored=2)
 
     monkeypatch.setattr("app.discovery.service.Session", Session)
@@ -170,11 +219,17 @@ async def test_completed_discovery_automatically_scores_unmatched_leads(monkeypa
         "app.discovery.service._build_sources",
         lambda _names, _session: ([Source()], []),
     )
-    monkeypatch.setattr("app.discovery.service.score_unmatched_leads", fake_score)
+    monkeypatch.setattr("app.discovery.service.score_prioritized_leads", fake_score)
 
-    await _execute_discovery_run(1)
+    await _execute_discovery_run(1, reevaluate_existing=True)
 
-    assert calls == [20]
+    assert calls == [
+        {
+            "lead_ids": [11, 10],
+            "limit": 20,
+            "reevaluate_existing": True,
+        }
+    ]
     assert run.status is DiscoveryRunStatus.COMPLETED
     assert run.source_results["automatic_matching"] == {
         "status": "completed",
