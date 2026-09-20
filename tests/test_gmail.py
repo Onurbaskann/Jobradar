@@ -9,6 +9,14 @@ from app.applications.gmail import GmailDraftGateway, GmailError, _build_raw_mes
 from app.config import Settings
 
 
+def test_default_redirect_uri_matches_gmail_callback_route() -> None:
+    settings = Settings(_env_file=None)
+
+    assert settings.gmail_redirect_uri == (
+        "http://localhost:8000/api/applications/gmail/callback"
+    )
+
+
 def test_builds_gmail_message_with_cv_attachment(tmp_path) -> None:
     cv_path = tmp_path / "cv.pdf"
     cv_path.write_bytes(b"example-pdf")
