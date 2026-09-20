@@ -146,7 +146,7 @@ function RunStatus({ run }: { run: DiscoveryRun }) {
 
 function runSummary(run: DiscoveryRun) {
   if (run.status === "pending") return "Tarama başlamak üzere.";
-  if (run.status === "running") return "Kaynaklar kontrol ediliyor; sonuçlar birazdan burada.";
+  if (run.status === "running") return "İlanlar aranıyor ve CV uyumu otomatik değerlendiriliyor.";
   if (run.status === "failed") return run.error ?? "Tarama tamamlanamadı.";
   const result = `${run.found_count} ilan bulundu, ${run.new_count} tanesi yeni.`;
   return run.error ? `${result} ${run.error}` : result;

@@ -147,7 +147,9 @@ function MatchResult({ match, shortlisted, applicationReady, preparingMatchId, o
   preparingMatchId: number | null;
   onPrepareApplication: JobInboxProps["onPrepareApplication"];
 }) {
-  const tone = match.score >= 75 ? "strong" : match.score >= 50 ? "medium" : "low";
+  const canPrepareApplication = match.score >= 50;
+  const tone = match.score >= 70 ? "strong" : canPrepareApplication ? "medium" : "low";
+  const level = match.score >= 70 ? "Yüksek uyum" : canPrepareApplication ? "Orta uyum" : "Düşük uyum";
   const preparing = preparingMatchId === match.id;
   return (
     <div className={`match-result match-result--${tone}`}>
@@ -155,7 +157,7 @@ function MatchResult({ match, shortlisted, applicationReady, preparingMatchId, o
         <strong>{match.score}</strong><span>/ 100</span>
       </div>
       <div className="match-copy">
-        <strong>CV uyumu</strong>
+        <strong>{level}</strong>
         <p>{match.rationale}</p>
         {match.gaps.length > 0 && (
           <div className="match-gaps">
@@ -170,11 +172,23 @@ function MatchResult({ match, shortlisted, applicationReady, preparingMatchId, o
         ) : (
           <Button
             variant="quiet"
-            disabled={!shortlisted || preparingMatchId !== null}
+            disabled={!shortlisted || !canPrepareApplication || preparingMatchId !== null}
             onClick={() => void onPrepareApplication(match.id)}
-            title={shortlisted ? undefined : "Önce ilanı kısa listeye al"}
+            title={
+              !canPrepareApplication
+                ? "Uyum puanı 50 altında olduğu için başvuru hazırlanamaz"
+                : shortlisted
+                  ? undefined
+                  : "Önce ilanı kısa listeye al"
+            }
           >
-            {preparing ? "Taslak hazırlanıyor…" : shortlisted ? "Başvuru hazırla" : "Önce kısa listeye al"}
+            {preparing
+              ? "Taslak hazırlanıyor…"
+              : !canPrepareApplication
+                ? "Uyum düşük"
+                : shortlisted
+                  ? "Başvuru hazırla"
+                  : "Önce kısa listeye al"}
           </Button>
         )}
       </div>

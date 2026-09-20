@@ -34,7 +34,13 @@ class _Result:
 
 
 class _Session:
-    def __init__(self, *, application: Application | None = None, shortlisted: bool = True):
+    def __init__(
+        self,
+        *,
+        application: Application | None = None,
+        shortlisted: bool = True,
+        score: int = 91,
+    ):
         self.profile = Profile(id=1, name="Onur", cv_text="C# ve .NET deneyimi")
         self.lead = JobLead(
             id=2,
@@ -49,7 +55,7 @@ class _Session:
             id=3,
             lead_id=2,
             profile_id=1,
-            score=91,
+            score=score,
             rationale="Güçlü teknik uyum",
             gaps=["Azure"],
             model="yerel/qwen3:8b",
@@ -142,6 +148,13 @@ def test_requires_shortlisted_lead() -> None:
     session = _Session(shortlisted=False)
 
     with pytest.raises(ApplicationInputError, match="kısa listeye"):
+        prepare_application(session, 3)  # type: ignore[arg-type]
+
+
+def test_rejects_application_when_match_score_is_below_50() -> None:
+    session = _Session(score=49)
+
+    with pytest.raises(ApplicationInputError, match="50 altında"):
         prepare_application(session, 3)  # type: ignore[arg-type]
 
 

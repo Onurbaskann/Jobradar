@@ -7,7 +7,12 @@ import pytest
 import respx
 
 from app.discovery.contracts import DiscoveredJob, SearchQuery
-from app.discovery.service import lead_fingerprint, prioritize_leads_by_location
+from app.discovery.service import (
+    _execute_discovery_run,
+    _store_jobs,
+    lead_fingerprint,
+    prioritize_leads_by_location,
+)
 from app.discovery.sources import (
     JobSpySource,
     SourceUnavailable,
@@ -15,7 +20,14 @@ from app.discovery.sources import (
     map_jobspy_row,
     map_turkiye_web_result,
 )
-from app.models import JobLead, RemoteType
+from app.matching.service import AutomaticMatchSummary
+from app.models import (
+    DiscoveryRun,
+    DiscoveryRunStatus,
+    JobLead,
+    RemoteType,
+    SearchProfile,
+)
 from app.web_search import WebSearchResult
 
 
@@ -65,6 +77,112 @@ def test_location_priority_handles_missing_location() -> None:
     prioritized = prioritize_leads_by_location(leads, "İzmir")
 
     assert [lead.fingerprint for lead in prioritized] == ["2", "1"]
+
+
+def test_changed_description_invalidates_existing_match() -> None:
+    job = DiscoveredJob(
+        source="jobspy",
+        title="Backend Developer",
+        company_name="Acme",
+        location="İzmir",
+        description_md="Yeni ve daha ayrıntılı ilan açıklaması " * 5,
+    )
+    existing = JobLead(
+        id=7,
+        fingerprint=lead_fingerprint(job),
+        title=job.title,
+        company_name=job.company_name,
+        location=job.location,
+        description_md="Kısa açıklama",
+    )
+
+    class Result:
+        def first(self):
+            return existing
+
+    class Session:
+        def __init__(self):
+            self.queries = []
+
+        def exec(self, query):
+            self.queries.append(query)
+            return Result()
+
+        def add(self, _value):
+            pass
+
+        def commit(self):
+            pass
+
+    session = Session()
+    created = _store_jobs(  # type: ignore[arg-type]
+        session,
+        DiscoveryRun(id=2, profile_id=1),
+        [job],
+        set(),
+    )
+
+    assert created == 0
+    assert existing.description_md == job.description_md
+    assert len(session.queries) == 2
+    assert "DELETE FROM lead_match" in str(session.queries[1])
+
+
+@pytest.mark.asyncio
+async def test_completed_discovery_automatically_scores_unmatched_leads(monkeypatch) -> None:
+    run = DiscoveryRun(id=1, profile_id=2)
+    profile = SearchProfile(id=2, name="Backend", query="Python")
+
+    class Session:
+        def __init__(self, _engine):
+            self.values = {DiscoveryRun: run, SearchProfile: profile}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def get(self, model, ident):
+            value = self.values.get(model)
+            return value if value is not None and value.id == ident else None
+
+        def add(self, _value):
+            pass
+
+        def commit(self):
+            pass
+
+    class Source:
+        name = "test"
+
+        async def discover(self, _query):
+            return []
+
+    calls = []
+
+    def fake_score(_session, *, limit):
+        calls.append(limit)
+        return AutomaticMatchSummary(considered=2, scored=2)
+
+    monkeypatch.setattr("app.discovery.service.Session", Session)
+    monkeypatch.setattr(
+        "app.discovery.service._build_sources",
+        lambda _names, _session: ([Source()], []),
+    )
+    monkeypatch.setattr("app.discovery.service.score_unmatched_leads", fake_score)
+
+    await _execute_discovery_run(1)
+
+    assert calls == [20]
+    assert run.status is DiscoveryRunStatus.COMPLETED
+    assert run.source_results["automatic_matching"] == {
+        "status": "completed",
+        "considered": 2,
+        "scored": 2,
+        "skipped": 0,
+        "failed": 0,
+    }
 
 
 def test_jobspy_row_maps_to_canonical_contract() -> None:

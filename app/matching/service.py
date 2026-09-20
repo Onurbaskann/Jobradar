@@ -1,15 +1,22 @@
 from __future__ import annotations
 
-from pydantic import BaseModel, Field
-from sqlmodel import Session, select
+import logging
+from dataclasses import dataclass
 
-from app.agents.client import call_structured
+from pydantic import BaseModel, Field
+from sqlalchemy import func
+from sqlmodel import Session, col, select
+
+from app.agents.client import AgentError, call_structured
 from app.agents.providers import describe
 from app.config import get_settings
-from app.models import JobLead, LeadMatch, Profile, utcnow
+from app.models import JobLead, JobLeadStatus, LeadMatch, Profile, utcnow
 
 MAX_MATCH_TEXT_CHARS = 12_000
 MIN_JOB_DESCRIPTION_CHARS = 80
+MIN_APPLICATION_SCORE = 50
+
+log = logging.getLogger(__name__)
 
 MATCH_SYSTEM_PROMPT = """Sen dikkatli bir kariyer eşleştirme uzmanısın.
 Yalnızca verilen CV ve ilan metnindeki açık kanıtları kullan.
@@ -30,6 +37,14 @@ class LeadScoreOutput(BaseModel):
 
 class MatchInputError(ValueError):
     """Eşleştirme için gerekli kullanıcı verisi eksik."""
+
+
+@dataclass(frozen=True)
+class AutomaticMatchSummary:
+    considered: int = 0
+    scored: int = 0
+    skipped: int = 0
+    failed: int = 0
 
 
 def build_match_prompt(profile: Profile, lead: JobLead) -> str:
@@ -99,6 +114,58 @@ def score_lead(session: Session, lead_id: int) -> LeadMatch:
     session.commit()
     session.refresh(match)
     return match
+
+
+def score_unmatched_leads(session: Session, *, limit: int) -> AutomaticMatchSummary:
+    """En yeni puanlanmamış ilanları sırayla değerlendirir.
+
+    Model veya ilan girdisi hatası yalnızca ilgili ilanı etkiler. Veritabanı
+    hataları ise oturumu geçersiz bırakabileceği için burada gizlenmez.
+    """
+    if limit <= 0:
+        return AutomaticMatchSummary()
+    profile = session.exec(select(Profile).order_by(Profile.id)).first()
+    if profile is None or profile.id is None or not profile.cv_text.strip():
+        return AutomaticMatchSummary()
+
+    candidates = list(
+        session.exec(
+            select(JobLead)
+            .outerjoin(
+                LeadMatch,
+                (LeadMatch.lead_id == JobLead.id)
+                & (LeadMatch.profile_id == profile.id),
+            )
+            .where(
+                col(LeadMatch.id).is_(None),
+                col(JobLead.status) != JobLeadStatus.DISMISSED,
+                func.length(func.trim(JobLead.description_md))
+                >= MIN_JOB_DESCRIPTION_CHARS,
+            )
+            .order_by(col(JobLead.first_seen_at).desc())
+            .limit(limit)
+        ).all()
+    )
+    scored = skipped = failed = 0
+    for lead in candidates:
+        if lead.id is None or len(lead.description_md.strip()) < MIN_JOB_DESCRIPTION_CHARS:
+            skipped += 1
+            continue
+        try:
+            score_lead(session, lead.id)
+            scored += 1
+        except MatchInputError:
+            skipped += 1
+        except AgentError as exc:
+            failed += 1
+            log.warning("İlan otomatik değerlendirilemedi (lead_id=%s): %s", lead.id, exc)
+
+    return AutomaticMatchSummary(
+        considered=len(candidates),
+        scored=scored,
+        skipped=skipped,
+        failed=failed,
+    )
 
 
 def list_profile_matches(session: Session) -> list[LeadMatch]:

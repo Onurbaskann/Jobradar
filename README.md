@@ -152,7 +152,7 @@ tarayıcı) gerekir; bu henüz kapsam dışı ve ayrı bir karar.
 | 1 | 7 ATS adaptörü, kanıtlı tespit, onay akışı | ✅ gerçek ilanlarla doğrulandı |
 | 2 | JSON-LD, sitemap, robots.txt, değişiklik tespiti | ✅ gerçek sitelerde ölçüldü |
 | 3 | Brave + yerel Qwen tespit ve çıkarım ajanları | ✅ Trendyol üzerinde canlı doğrulandı |
-| 4 | CV profili ve eşleştirme | ✅ Tek ilanı yerel Qwen ile puanlama hazır |
+| 4 | CV profili ve eşleştirme | ✅ Yeni ilanları yerel Qwen ile otomatik ve sıralı puanlama hazır |
 | 5–6 | Başvuru taslağı, onay ve Gmail aktarımı | ✅ Gmail taslağı hazır; son gönderim kullanıcıda |
 | 7 | JobSpy keşfi, arama profilleri ve React ilan kutusu | ✅ ilk dikey dilim hazır |
 | 8 | Türkiye'ye özel portal arama adaptörleri ve deploy | ⚠️ adaptör canlı doğrulandı, deploy bekliyor |
@@ -161,6 +161,11 @@ Faz 3'ün mantığı (budama, şema eşleme, doğrulama, maliyet kapısı) testl
 korunuyor. Varsayılan akış Brave Search ve yerel Ollama/Qwen kullanır;
 `ANTHROPIC_API_KEY` gerekmez. Anthropic sağlayıcısı yalnız isteğe bağlıdır ve
 `pip install -e ".[cloud]"` ile ayrıca kurulabilir.
+
+Her keşif çalışması sonunda en yeni ve henüz değerlendirilmemiş ilanlar yerel
+Qwen ile sırayla puanlanır. Varsayılan batch sınırı 20 ilandır ve
+`AUTOMATIC_MATCH_LIMIT` ile değiştirilebilir. `50` puanın altındaki ilanlar için
+başvuru taslağı hazırlanmaz; manuel yeniden değerlendirme seçeneği korunur.
 
 ## Geliştirme
 

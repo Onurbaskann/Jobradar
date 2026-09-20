@@ -18,6 +18,7 @@ class Settings(BaseSettings):
     model_extract: str = "ollama:qwen3:8b"
     model_score: str = "ollama:qwen3:8b"
     model_tailor: str = "ollama:qwen3:8b"
+    automatic_match_limit: int = 20
 
     # "localhost" yerine 127.0.0.1: Windows'ta localhost önce IPv6'ya çözülür ve
     # yalnızca IPv4 dinleyen bir servise bağlanmak TCP zaman aşımı kadar sürer.
