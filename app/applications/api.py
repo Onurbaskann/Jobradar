@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import logging
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field
 from sqlmodel import Session
@@ -23,6 +24,7 @@ from app.db import get_session
 from app.models import Application, ApplicationStatus, ApplyChannel
 
 router = APIRouter(prefix="/api/applications", tags=["applications"])
+logger = logging.getLogger(__name__)
 SessionDep = Annotated[Session, Depends(get_session)]
 
 
@@ -118,12 +120,17 @@ def authorize_gmail() -> RedirectResponse:
 
 
 @router.get("/gmail/callback", include_in_schema=False)
-def gmail_callback(request: Request, state: str = "", error: str | None = None) -> RedirectResponse:
+def gmail_callback(
+    state: str = "",
+    code: str = "",
+    error: str | None = None,
+) -> RedirectResponse:
     if error:
         return RedirectResponse("/?gmail=denied#applications")
     try:
-        GmailDraftGateway(get_settings()).complete_authorization(str(request.url), state)
+        GmailDraftGateway(get_settings()).complete_authorization(code, state)
     except GmailError:
+        logger.exception("Gmail OAuth callback failed")
         return RedirectResponse("/?gmail=error#applications")
     return RedirectResponse("/?gmail=connected#applications")
 

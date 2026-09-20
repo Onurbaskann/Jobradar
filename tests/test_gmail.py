@@ -1,4 +1,5 @@
 import base64
+from datetime import UTC, datetime
 from email import policy
 from email.parser import BytesParser
 
@@ -59,6 +60,38 @@ def test_reports_unconfigured_gmail(tmp_path) -> None:
     assert gateway.connection().connected is False
     with pytest.raises(GmailError, match="kimlik dosyası bulunamadı"):
         gateway.authorization_url()
+
+
+def test_exchanges_authorization_code_without_reprocessing_http_callback(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    settings = Settings(
+        gmail_credentials_path=str(tmp_path / "client.json"),
+        gmail_token_path=str(tmp_path / "token.json"),
+    )
+    gateway = GmailDraftGateway(settings)
+    captured = {}
+
+    class Flow:
+        credentials = object()
+        code_verifier = None
+
+        def fetch_token(self, **kwargs):
+            captured.update(kwargs)
+
+    flow = Flow()
+    monkeypatch.setattr(gateway, "_flow", lambda **_kwargs: flow)
+    monkeypatch.setattr(gateway, "_save_credentials", lambda _credentials: None)
+    gmail._pending_states["valid-state"] = gmail._PendingAuthorization(
+        issued_at=datetime.now(UTC),
+        code_verifier="pkce-verifier",
+    )
+
+    gateway.complete_authorization("single-use-code", "valid-state")
+
+    assert captured == {"code": "single-use-code"}
+    assert flow.code_verifier == "pkce-verifier"
 
 
 @pytest.mark.parametrize(
