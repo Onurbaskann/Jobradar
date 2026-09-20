@@ -19,7 +19,15 @@ from app.config import Settings
 
 GMAIL_COMPOSE_SCOPE = "https://www.googleapis.com/auth/gmail.compose"
 STATE_TTL = timedelta(minutes=10)
-_pending_states: dict[str, datetime] = {}
+
+
+@dataclass(frozen=True)
+class _PendingAuthorization:
+    issued_at: datetime
+    code_verifier: str | None
+
+
+_pending_states: dict[str, _PendingAuthorization] = {}
 
 
 class GmailError(RuntimeError):
@@ -56,7 +64,6 @@ class GmailDraftGateway:
         self._require_client_credentials()
         flow = self._flow()
         state = secrets.token_urlsafe(32)
-        _pending_states[state] = datetime.now(UTC)
         self._prune_states()
         url, _ = flow.authorization_url(
             access_type="offline",
@@ -64,15 +71,22 @@ class GmailDraftGateway:
             prompt="consent",
             state=state,
         )
+        _pending_states[state] = _PendingAuthorization(
+            issued_at=datetime.now(UTC),
+            code_verifier=flow.code_verifier,
+        )
         return url
 
-    def complete_authorization(self, authorization_response: str, state: str) -> None:
-        issued_at = _pending_states.pop(state, None)
-        if issued_at is None or datetime.now(UTC) - issued_at > STATE_TTL:
+    def complete_authorization(self, authorization_code: str, state: str) -> None:
+        pending = _pending_states.pop(state, None)
+        if pending is None or datetime.now(UTC) - pending.issued_at > STATE_TTL:
             raise GmailError("Gmail bağlantı isteği geçersiz veya süresi dolmuş")
+        if not authorization_code:
+            raise GmailError("Gmail yetkilendirme kodu eksik")
         flow = self._flow(state=state)
+        flow.code_verifier = pending.code_verifier
         try:
-            flow.fetch_token(authorization_response=authorization_response)
+            flow.fetch_token(code=authorization_code)
         except Exception as exc:
             raise GmailError("Gmail yetkilendirmesi tamamlanamadı") from exc
         self._save_credentials(flow.credentials)
@@ -169,8 +183,8 @@ class GmailDraftGateway:
         now = datetime.now(UTC)
         expired = [
             state
-            for state, issued_at in _pending_states.items()
-            if now - issued_at > STATE_TTL
+            for state, pending in _pending_states.items()
+            if now - pending.issued_at > STATE_TTL
         ]
         for state in expired:
             _pending_states.pop(state, None)
