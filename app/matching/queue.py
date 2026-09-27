@@ -7,6 +7,7 @@ from dataclasses import dataclass
 from sqlmodel import Session, col, select
 
 from app.agents.client import AgentError
+from app.agents.workload import interactive_model_call_pending
 from app.db import get_engine
 from app.matching.service import MatchInputError, score_lead
 from app.models import (
@@ -187,6 +188,8 @@ def _update_run_progress(session: Session, run_id: int) -> None:
 
 async def run_matching_worker() -> None:
     while True:
+        if interactive_model_call_pending():
+            await asyncio.sleep(0.25)
+            continue
         processed = await asyncio.to_thread(process_next_queued_match)
-        if not processed:
-            await asyncio.sleep(1.5)
+        await asyncio.sleep(0.25 if processed else 1.5)

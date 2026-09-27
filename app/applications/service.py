@@ -7,6 +7,7 @@ from pydantic import BaseModel, model_validator
 from sqlmodel import Session, col, select
 
 from app.agents.client import call_structured
+from app.agents.workload import prioritize_interactive_model_call
 from app.config import get_settings
 from app.matching.service import MIN_APPLICATION_SCORE
 from app.models import (
@@ -114,16 +115,17 @@ def prepare_application(session: Session, lead_match_id: int) -> Application:
         raise ApplicationInputError("CV profili bulunamadı")
 
     settings = get_settings()
-    result = call_structured(
-        agent="prepare_application",
-        model=settings.model_tailor,
-        system=APPLICATION_SYSTEM_PROMPT,
-        user_content=build_application_prompt(profile, lead, match),
-        output_model=ApplicationDraftOutput,
-        max_tokens=2_400,
-        effort="medium",
-        job_id=lead.id,
-    )
+    with prioritize_interactive_model_call():
+        result = call_structured(
+            agent="prepare_application",
+            model=settings.model_tailor,
+            system=APPLICATION_SYSTEM_PROMPT,
+            user_content=build_application_prompt(profile, lead, match),
+            output_model=ApplicationDraftOutput,
+            max_tokens=2_400,
+            effort="medium",
+            job_id=lead.id,
+        )
 
     application = session.exec(
         select(Application).where(Application.lead_match_id == match.id)

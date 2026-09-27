@@ -5,6 +5,7 @@ import pytest
 from fastapi import HTTPException
 
 from app.agents.client import AgentError
+from app.agents.workload import interactive_model_call_pending
 from app.applications import api
 from app.applications.service import (
     ApplicationDraftOutput,
@@ -127,9 +128,14 @@ def test_application_prompt_contains_cv_job_and_match_evidence() -> None:
 
 def test_prepares_and_persists_draft(monkeypatch) -> None:
     session = _Session()
+
+    def prepare(**_kwargs):
+        assert interactive_model_call_pending()
+        return SimpleNamespace(data=_draft())
+
     monkeypatch.setattr(
         "app.applications.service.call_structured",
-        lambda **_kwargs: SimpleNamespace(data=_draft()),
+        prepare,
     )
 
     application = prepare_application(session, 3)  # type: ignore[arg-type]
@@ -142,6 +148,7 @@ def test_prepares_and_persists_draft(monkeypatch) -> None:
     assert application.company_name == "Örnek AŞ"
     assert application.email_subject == "Backend Developer başvurusu"
     assert session.added is application
+    assert not interactive_model_call_pending()
 
 
 def test_requires_shortlisted_lead() -> None:
