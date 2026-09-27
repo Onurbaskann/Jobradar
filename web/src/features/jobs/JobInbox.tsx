@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type { JobLead, JobLeadStatus, LeadMatch, MatchQueueItem } from "../../shared/api/types";
 import { Button } from "../../shared/ui/Button";
 import { StatusPill } from "../../shared/ui/StatusPill";
+import { sortJobLeadsForReview } from "./sortJobLeads";
 
 interface JobInboxProps {
   leads: JobLead[];
@@ -41,9 +42,17 @@ export function JobInbox({
   onStatusChange,
 }: JobInboxProps) {
   const [filter, setFilter] = useState<"all" | JobLeadStatus>("new");
+  const orderedLeads = useMemo(
+    () => matchQueue.length > 0
+      ? leads
+      : sortJobLeadsForReview(leads, matches, preferredLocation),
+    [leads, matchQueue.length, matches, preferredLocation],
+  );
   const visible = useMemo(
-    () => (filter === "all" ? leads : leads.filter((lead) => lead.status === filter)),
-    [filter, leads],
+    () => filter === "all"
+      ? orderedLeads
+      : orderedLeads.filter((lead) => lead.status === filter),
+    [filter, orderedLeads],
   );
 
   return (
