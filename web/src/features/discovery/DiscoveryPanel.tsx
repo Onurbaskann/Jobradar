@@ -165,5 +165,21 @@ function runSummary(run: DiscoveryRun) {
   if (run.status === "running") return "İlanlar aranıyor ve CV uyumu otomatik değerlendiriliyor.";
   if (run.status === "failed") return run.error ?? "Tarama tamamlanamadı.";
   const result = `${run.found_count} ilan bulundu, ${run.new_count} tanesi yeni.`;
+  const matching = run.source_results.automatic_matching;
+  if (matching && typeof matching === "object") {
+    const progress = matching as Record<string, unknown>;
+    const queued = numberValue(progress.queued);
+    const completed = numberValue(progress.completed);
+    const processing = numberValue(progress.processing);
+    const pending = numberValue(progress.pending);
+    if (queued > 0 && (processing > 0 || pending > 0)) {
+      return `${result} CV değerlendirmesi sürüyor: ${completed}/${queued}.`;
+    }
+    if (queued > 0) return `${result} ${completed}/${queued} ilan değerlendirildi.`;
+  }
   return run.error ? `${result} ${run.error}` : result;
+}
+
+function numberValue(value: unknown) {
+  return typeof value === "number" ? value : 0;
 }

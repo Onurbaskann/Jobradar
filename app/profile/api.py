@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session, select
 
@@ -32,7 +33,7 @@ def _profile_view(profile: Profile) -> CandidateProfileView:
     return CandidateProfileView(
         id=profile.id,
         name=profile.name,
-        filename=Path(profile.cv_file_path or "").name,
+        filename=profile.cv_original_filename or Path(profile.cv_file_path or "").name,
         text_length=len(profile.cv_text),
         updated_at=profile.updated_at,
     )
@@ -44,6 +45,21 @@ def get_candidate_profile(session: SessionDep) -> CandidateProfileView | None:
     if profile is None or not profile.cv_file_path or not profile.cv_text:
         return None
     return _profile_view(profile)
+
+
+@router.get("/profile/cv", response_class=FileResponse)
+def download_candidate_cv(session: SessionDep) -> FileResponse:
+    profile = session.exec(select(Profile).order_by(Profile.id)).first()
+    if profile is None or not profile.cv_file_path:
+        raise HTTPException(status_code=404, detail="Yüklü CV bulunamadı")
+    path = Path(profile.cv_file_path)
+    if not path.is_file():
+        raise HTTPException(status_code=404, detail="CV dosyası diskte bulunamadı")
+    return FileResponse(
+        path,
+        filename=profile.cv_original_filename or path.name,
+        media_type="application/octet-stream",
+    )
 
 
 @router.put("/profile", response_model=CandidateProfileView)

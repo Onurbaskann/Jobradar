@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import re
 import unicodedata
 
@@ -11,7 +12,8 @@ from app.config import get_settings
 from app.db import get_engine
 from app.discovery.contracts import DiscoveredJob, JobSource, SearchQuery
 from app.discovery.sources import JobSpySource, TrackedJobsSource, TurkiyeWebSource
-from app.matching.service import MIN_JOB_DESCRIPTION_CHARS, score_prioritized_leads
+from app.matching.queue import enqueue_prioritized_leads
+from app.matching.service import MIN_JOB_DESCRIPTION_CHARS
 from app.models import (
     DiscoveryRun,
     DiscoveryRunStatus,
@@ -22,6 +24,8 @@ from app.models import (
     utcnow,
 )
 from app.util.text import content_hash
+
+log = logging.getLogger(__name__)
 
 
 def create_run(session: Session, profile_id: int) -> DiscoveryRun:
@@ -37,7 +41,18 @@ def create_run(session: Session, profile_id: int) -> DiscoveryRun:
 
 def execute_discovery_run(run_id: int, reevaluate_existing: bool = False) -> None:
     """FastAPI BackgroundTasks için senkron giriş noktası."""
-    asyncio.run(_execute_discovery_run(run_id, reevaluate_existing))
+    try:
+        asyncio.run(_execute_discovery_run(run_id, reevaluate_existing))
+    except Exception as exc:  # noqa: BLE001 - arka plan işi kalıcı durumda sonlanmalı
+        log.exception("Keşif çalışması tamamlanamadı (run_id=%s)", run_id)
+        with Session(get_engine()) as session:
+            run = session.get(DiscoveryRun, run_id)
+            if run is not None and run.status in {
+                DiscoveryRunStatus.PENDING,
+                DiscoveryRunStatus.RUNNING,
+            }:
+                message = f"Tarama tamamlanamadı: {type(exc).__name__}: {str(exc)[:200]}"
+                _fail_run(session, run, message)
 
 
 async def _execute_discovery_run(
@@ -90,6 +105,11 @@ async def _execute_discovery_run(
                     "status": "failed",
                     "error": f"{type(exc).__name__}: {str(exc)[:240]}",
                 }
+            run.source_results = dict(source_results)
+            run.found_count = len(fingerprints)
+            run.new_count = new_count
+            session.add(run)
+            session.commit()
 
         if successful_sources:
             settings = get_settings()
@@ -109,18 +129,18 @@ async def _execute_discovery_run(
                 matching_candidates,
                 profile.location,
             )
-            matching = score_prioritized_leads(
+            matching = enqueue_prioritized_leads(
                 session,
-                matching_candidates,
+                run_id=run.id,
+                leads=matching_candidates,
                 limit=settings.automatic_match_limit,
                 reevaluate_existing=reevaluate_existing,
             )
             source_results["automatic_matching"] = {
-                "status": "completed" if matching.failed == 0 else "partial",
+                "status": "queued" if matching.queued else "completed",
                 "considered": matching.considered,
-                "scored": matching.scored,
+                "queued": matching.queued,
                 "skipped": matching.skipped,
-                "failed": matching.failed,
             }
 
         run.source_results = source_results

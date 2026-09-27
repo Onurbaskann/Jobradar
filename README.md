@@ -164,10 +164,15 @@ korunuyor. Varsayılan akış Brave Search ve yerel Ollama/Qwen kullanır;
 
 Her keşif çalışması sonunda o taramada bulunan ilanlar, seçilen arama profilinin
 konumuna göre önceliklendirilir. İlk 20 uygun ilan yerel Qwen ile sırayla
-puanlanır; daha önce puanlananlar varsayılan olarak atlanır. Tarama ekranındaki
-anahtar açılırsa ilk 20 içindeki mevcut sonuçlar da yenilenir. Batch sınırı
+puanlanmak üzere PostgreSQL kuyruğuna eklenir; ilanlar ve tamamlanan sonuçlar
+beklemeden ekranda görünür. Uygulama yeniden başlarsa bekleyen işler kaybolmaz.
+Daha önce puanlananlar varsayılan olarak atlanır. Tarama ekranındaki anahtar
+açılırsa ilk 20 içindeki mevcut sonuçlar da yenilenir. Batch sınırı
 `AUTOMATIC_MATCH_LIMIT` ile değiştirilebilir. `50` puanın altındaki ilanlar için
 başvuru taslağı hazırlanmaz; ilan bazlı manuel değerlendirme de korunur.
+
+Yüklenen CV'nin asıl dosyası `data/cv` altında saklanır. Aday profili alanı
+yüklü dosyanın adını gösterir ve dosyayı indirmeye izin verir; önizleme yoktur.
 
 ## Geliştirme
 

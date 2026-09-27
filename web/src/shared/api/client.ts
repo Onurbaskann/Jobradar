@@ -8,6 +8,7 @@ import type {
   JobApplication,
   GmailConnection,
   LeadMatch,
+  MatchQueueItem,
   ProfileCreate,
   SearchProfile,
 } from "./types";
@@ -73,6 +74,7 @@ export const api = {
       body: JSON.stringify({ status }),
     }),
   leadMatches: () => request<LeadMatch[]>("/api/jobs/leads/matches"),
+  matchQueue: () => request<MatchQueueItem[]>("/api/jobs/leads/match-queue"),
   scoreLead: (leadId: number) =>
     request<LeadMatch>(`/api/jobs/leads/${leadId}/score`, { method: "POST" }),
   applications: () => request<JobApplication[]>("/api/applications"),

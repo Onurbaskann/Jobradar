@@ -67,6 +67,7 @@ def save_candidate_profile(
     if len(clean_name) < 2:
         raise CvValidationError("Aday adı en az 2 karakter olmalı")
     cv_text, extension = extract_cv_text(filename, content)
+    original_filename = filename.replace("\\", "/").rsplit("/", 1)[-1].strip()
     profile = session.exec(select(Profile).order_by(Profile.id)).first()
     if profile is None:
         profile = Profile(name=name)
@@ -77,6 +78,7 @@ def save_candidate_profile(
 
     profile.name = clean_name
     profile.cv_file_path = str(target)
+    profile.cv_original_filename = original_filename[:255] or f"candidate-cv{extension}"
     profile.cv_text = cv_text
     profile.cv_summary = ""
     profile.embedding = None

@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, UniqueConstraint
+from sqlalchemy import Column, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -109,6 +109,14 @@ class JobLeadStatus(StrEnum):
     DISMISSED = "dismissed"
 
 
+class MatchQueueStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
 # --------------------------------------------------------------------------- tables
 
 
@@ -187,6 +195,7 @@ class Profile(SQLModel, table=True):
     id: int | None = Field(default=None, primary_key=True)
     name: str = "default"
     cv_file_path: str | None = None
+    cv_original_filename: str | None = None
     cv_text: str = ""
     cv_summary: str = ""  # Ajan tarafından üretilen yapılandırılmış özet
     skills: list[str] = Field(default_factory=list, sa_column=Column(JSONB))
@@ -332,6 +341,29 @@ class LeadMatch(SQLModel, table=True):
     gaps: list[str] = Field(default_factory=list, sa_column=Column(JSONB))
     model: str
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+class MatchQueueItem(SQLModel, table=True):
+    """Yerel LLM tarafından sırayla işlenecek kalıcı değerlendirme işi."""
+
+    __tablename__ = "match_queue_item"
+    __table_args__ = (
+        UniqueConstraint("run_id", "lead_id", "profile_id", name="uq_match_queue_run_lead"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: int = Field(foreign_key="discovery_run.id", index=True)
+    lead_id: int = Field(foreign_key="job_lead.id", index=True)
+    profile_id: int = Field(foreign_key="profile.id", index=True)
+    position: int
+    status: MatchQueueStatus = Field(
+        default=MatchQueueStatus.PENDING,
+        sa_column=Column(String, nullable=False, index=True),
+    )
+    error: str | None = None
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class UsageLog(SQLModel, table=True):

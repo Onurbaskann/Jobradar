@@ -14,6 +14,7 @@ import type {
   JobApplication,
   GmailConnection,
   LeadMatch,
+  MatchQueueItem,
   ProfileCreate,
   SearchProfile,
 } from "../shared/api/types";
@@ -25,6 +26,7 @@ export function App() {
   const [run, setRun] = useState<DiscoveryRun | null>(null);
   const [leads, setLeads] = useState<JobLead[]>([]);
   const [matches, setMatches] = useState<LeadMatch[]>([]);
+  const [matchQueue, setMatchQueue] = useState<MatchQueueItem[]>([]);
   const [applications, setApplications] = useState<JobApplication[]>([]);
   const [gmailConnection, setGmailConnection] = useState<GmailConnection>({
     configured: false,
@@ -38,12 +40,13 @@ export function App() {
   const [preparingMatchId, setPreparingMatchId] = useState<number | null>(null);
 
   const refreshData = useCallback(async (profileId?: number, preferredLocation?: string) => {
-    const [nextLeads, nextStats, nextRun, nextMatches, nextApplications, nextGmail] =
+    const [nextLeads, nextStats, nextRun, nextMatches, nextQueue, nextApplications, nextGmail] =
       await Promise.all([
         api.leads(preferredLocation),
         api.stats(),
         api.latestRun(profileId),
         api.leadMatches(),
+        api.matchQueue(),
         api.applications(),
         api.gmailStatus(),
       ]);
@@ -51,6 +54,7 @@ export function App() {
     setStats(nextStats);
     setRun(nextRun);
     setMatches(nextMatches);
+    setMatchQueue(nextQueue);
     setApplications(nextApplications);
     setGmailConnection(nextGmail);
   }, []);
@@ -83,21 +87,27 @@ export function App() {
   }, [refreshData]);
 
   useEffect(() => {
-    if (!run || !["pending", "running"].includes(run.status)) return;
+    const runActive = run && ["pending", "running"].includes(run.status);
+    if (!runActive && matchQueue.length === 0) return;
     const timer = window.setTimeout(async () => {
       try {
-        const nextRun = await api.run(run.id);
+        const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
+        const [nextRun, nextLeads, nextMatches, nextQueue] = await Promise.all([
+          run ? api.run(run.id) : api.latestRun(selectedProfileId ?? undefined),
+          api.leads(selectedProfile?.location),
+          api.leadMatches(),
+          api.matchQueue(),
+        ]);
         setRun(nextRun);
-        if (["completed", "failed"].includes(nextRun.status)) {
-          const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
-          await refreshData(selectedProfileId ?? undefined, selectedProfile?.location);
-        }
+        setLeads(nextLeads);
+        setMatches(nextMatches);
+        setMatchQueue(nextQueue);
       } catch (cause) {
         setError(messageOf(cause));
       }
     }, 1600);
     return () => window.clearTimeout(timer);
-  }, [profiles, refreshData, run, selectedProfileId]);
+  }, [matchQueue.length, profiles, run, selectedProfileId]);
 
   async function createProfile(payload: ProfileCreate) {
     try {
@@ -306,6 +316,7 @@ export function App() {
         <JobInbox
           leads={leads}
           matches={matches}
+          matchQueue={matchQueue}
           preferredLocation={
             profiles.find((profile) => profile.id === selectedProfileId)?.location ?? "Türkiye"
           }

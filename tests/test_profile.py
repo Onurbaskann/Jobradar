@@ -1,9 +1,11 @@
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 from docx import Document
 
 from app.models import Profile
+from app.profile.api import download_candidate_cv
 from app.profile.service import (
     MAX_CV_BYTES,
     CvValidationError,
@@ -89,7 +91,37 @@ def test_saves_normalized_profile_and_local_file(tmp_path) -> None:
     assert profile.id == 1
     assert profile.name == "Onur Başkan"
     assert profile.cv_text == "Python\nFastAPI"
+    assert profile.cv_original_filename == "onur.txt"
     assert (tmp_path / "candidate-cv.txt").read_bytes() == b"Python\n\nFastAPI"
+
+
+def test_keeps_only_the_uploaded_cv_basename(tmp_path) -> None:
+    profile = save_candidate_profile(
+        _Session(),  # type: ignore[arg-type]
+        name="Onur",
+        filename="C:\\fakepath\\ozgecmis.txt",
+        content=b"Backend developer",
+        upload_dir=tmp_path,
+    )
+
+    assert profile.cv_original_filename == "ozgecmis.txt"
+
+
+def test_downloads_the_saved_cv_with_its_original_name(tmp_path) -> None:
+    cv_path = tmp_path / "candidate-cv.txt"
+    cv_path.write_text("Backend developer", encoding="utf-8")
+    profile = Profile(
+        id=1,
+        name="Onur",
+        cv_text="Backend developer",
+        cv_file_path=str(cv_path),
+        cv_original_filename="Onur-Baskan-CV.txt",
+    )
+
+    response = download_candidate_cv(_Session(profile))  # type: ignore[arg-type]
+
+    assert Path(response.path) == cv_path
+    assert "Onur-Baskan-CV.txt" in response.headers["content-disposition"]
 
 
 def test_rejects_blank_candidate_name(tmp_path) -> None:

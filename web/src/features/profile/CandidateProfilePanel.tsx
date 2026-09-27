@@ -44,6 +44,12 @@ export function CandidateProfilePanel({ profile, loading, onUpload }: CandidateP
       <div className={`cv-panel ${profile ? "cv-panel--ready" : ""}`}>
         <form className="cv-upload" onSubmit={submit}>
           <div><strong>{profile ? "CV’ni güncelle" : "CV’ni radara tanıt"}</strong><p>PDF, DOCX veya TXT yükle. Dosya yalnızca yerel Jobradar verisinde tutulur.</p></div>
+          {profile && (
+            <div className="current-cv">
+              <span><small>Yüklü CV</small><strong>{profile.filename}</strong></span>
+              <a className="button button--quiet" href="/api/profile/cv" download>CV’yi indir</a>
+            </div>
+          )}
           <label>Adın<input value={name} onChange={(event) => setName(event.target.value)} minLength={2} maxLength={100} required /></label>
           <label className="cv-file">CV dosyası<input ref={fileInput} type="file" accept=".pdf,.docx,.txt" onChange={(event) => setFile(event.target.files?.[0] ?? null)} required /><span>{file?.name ?? "Dosya seçilmedi"}</span></label>
           <Button disabled={!file || saving}>{saving ? "CV işleniyor…" : profile ? "CV’yi güncelle" : "CV’yi kaydet"}</Button>
