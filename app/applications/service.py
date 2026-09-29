@@ -7,6 +7,7 @@ from pydantic import BaseModel, model_validator
 from sqlmodel import Session, col, select
 
 from app.agents.client import call_structured
+from app.agents.workload import prioritize_interactive_model_call
 from app.config import get_settings
 from app.matching.service import MIN_APPLICATION_SCORE
 from app.models import (
@@ -17,8 +18,11 @@ from app.models import (
     JobLeadStatus,
     LeadMatch,
     Profile,
+    Resume,
+    ResumeProcessingStatus,
     utcnow,
 )
+from app.profile.service import build_resume_context, get_current_resume
 
 MAX_APPLICATION_TEXT_CHARS = 12_000
 
@@ -71,12 +75,17 @@ class GmailDraftWriter(Protocol):
     ) -> GmailDraftResult: ...
 
 
-def build_application_prompt(profile: Profile, lead: JobLead, match: LeadMatch) -> str:
+def build_application_prompt(
+    profile: Profile,
+    lead: JobLead,
+    match: LeadMatch,
+    resume_context: str,
+) -> str:
     return f"""ADAY
 Ad: {profile.name}
 CV:
 ---
-{profile.cv_text.strip()[:MAX_APPLICATION_TEXT_CHARS]}
+{resume_context.strip()[:MAX_APPLICATION_TEXT_CHARS]}
 ---
 
 İLAN
@@ -110,20 +119,34 @@ def prepare_application(session: Session, lead_match_id: int) -> Application:
             f"Uyum puanı {MIN_APPLICATION_SCORE} altında olan ilanlar için başvuru hazırlanamaz"
         )
     profile = session.get(Profile, match.profile_id)
-    if profile is None or not profile.cv_text.strip():
+    resume = session.get(Resume, match.resume_id) if match.resume_id is not None else None
+    if profile is not None and resume is None:
+        resume = get_current_resume(session, profile.id)
+    if (
+        profile is None
+        or resume is None
+        or resume.status != ResumeProcessingStatus.COMPLETED
+        or not resume.extracted_text.strip()
+    ):
         raise ApplicationInputError("CV profili bulunamadı")
 
     settings = get_settings()
-    result = call_structured(
-        agent="prepare_application",
-        model=settings.model_tailor,
-        system=APPLICATION_SYSTEM_PROMPT,
-        user_content=build_application_prompt(profile, lead, match),
-        output_model=ApplicationDraftOutput,
-        max_tokens=2_400,
-        effort="medium",
-        job_id=lead.id,
-    )
+    with prioritize_interactive_model_call():
+        result = call_structured(
+            agent="prepare_application",
+            model=settings.model_tailor,
+            system=APPLICATION_SYSTEM_PROMPT,
+            user_content=build_application_prompt(
+                profile,
+                lead,
+                match,
+                build_resume_context(session, resume),
+            ),
+            output_model=ApplicationDraftOutput,
+            max_tokens=2_400,
+            effort="medium",
+            job_id=lead.id,
+        )
 
     application = session.exec(
         select(Application).where(Application.lead_match_id == match.id)
@@ -193,8 +216,8 @@ def create_gmail_draft(
     if application.status is not ApplicationStatus.APPROVED:
         raise ApplicationInputError("Gmail taslağı için önce başvuruyu onaylamalısın")
     match = _require_current_match(session, application)
-    profile = session.get(Profile, match.profile_id)
-    if profile is None or not profile.cv_file_path:
+    resume = session.get(Resume, match.resume_id) if match.resume_id is not None else None
+    if resume is None:
         raise ApplicationInputError("CV dosyası bulunamadı; CV'yi yeniden yükle")
     recipient_email = _validate_recipient_email(application.recipient_email, required=True)
 
@@ -203,7 +226,7 @@ def create_gmail_draft(
         subject=application.email_subject,
         body=application.email_body,
         cover_letter=application.cover_letter,
-        attachment_path=Path(profile.cv_file_path),
+        attachment_path=Path(resume.file_path),
         draft_id=application.gmail_draft_id,
     )
     application.gmail_draft_id = draft.draft_id

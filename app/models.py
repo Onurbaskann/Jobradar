@@ -3,7 +3,7 @@ from enum import StrEnum
 from typing import Any
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import Column, UniqueConstraint
+from sqlalchemy import Column, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
@@ -109,6 +109,21 @@ class JobLeadStatus(StrEnum):
     DISMISSED = "dismissed"
 
 
+class MatchQueueStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+    FAILED = "failed"
+
+
+class ResumeProcessingStatus(StrEnum):
+    PENDING = "pending"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 # --------------------------------------------------------------------------- tables
 
 
@@ -186,15 +201,166 @@ class Profile(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = "default"
+    # Geçiş tamamlanana kadar veritabanı uyumluluğu için tutulur. Yeni kod CV
+    # verisini yalnız Resume ve alt tablolarından okur/yazar.
     cv_file_path: str | None = None
+    cv_original_filename: str | None = None
     cv_text: str = ""
-    cv_summary: str = ""  # Ajan tarafından üretilen yapılandırılmış özet
+    cv_summary: str = ""
     skills: list[str] = Field(default_factory=list, sa_column=Column(JSONB))
     # {"locations": [...], "remote_ok": true, "seniority": [...], "blocklist": [...]}
     preferences: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSONB))
-
     embedding: list[float] | None = Field(default=None, sa_column=Column(Vector(EMBED_DIM)))
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+class Resume(SQLModel, table=True):
+    """Adayın yüklediği CV'nin sürümlenmiş, metin olarak işlenmiş hali."""
+
+    __tablename__ = "resume"
+    __table_args__ = (
+        UniqueConstraint("profile_id", "version", name="uq_resume_profile_version"),
+        UniqueConstraint("profile_id", "sha256", name="uq_resume_profile_hash"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    profile_id: int = Field(foreign_key="profile.id", index=True)
+    version: int
+    original_filename: str
+    file_path: str
+    sha256: str | None = Field(default=None, index=True)
+    mime_type: str
+    extracted_text: str = ""
+    language: str | None = None
+    summary: str = ""
+    email: str | None = None
+    phone: str | None = None
+    location: str | None = None
+    linkedin_url: str | None = None
+    github_url: str | None = None
+    portfolio_url: str | None = None
+    status: ResumeProcessingStatus = Field(
+        default=ResumeProcessingStatus.PENDING,
+        sa_column=Column(String, nullable=False, index=True),
+    )
+    parser_version: str = ""
+    extraction_model: str | None = None
+    processing_error: str | None = None
+    uploaded_at: datetime = Field(default_factory=utcnow, index=True)
+    processed_at: datetime | None = None
+
+
+class ResumeExperience(SQLModel, table=True):
+    __tablename__ = "resume_experience"
+
+    id: int | None = Field(default=None, primary_key=True)
+    resume_id: int = Field(foreign_key="resume.id", index=True, ondelete="CASCADE")
+    employer: str
+    title: str
+    location: str | None = None
+    start_year: int | None = None
+    start_month: int | None = None
+    end_year: int | None = None
+    end_month: int | None = None
+    is_current: bool = False
+    description: str = ""
+    display_order: int = 0
+
+
+class ResumeEducation(SQLModel, table=True):
+    __tablename__ = "resume_education"
+
+    id: int | None = Field(default=None, primary_key=True)
+    resume_id: int = Field(foreign_key="resume.id", index=True, ondelete="CASCADE")
+    institution: str
+    degree: str | None = None
+    field_of_study: str | None = None
+    location: str | None = None
+    start_year: int | None = None
+    start_month: int | None = None
+    end_year: int | None = None
+    end_month: int | None = None
+    description: str = ""
+    display_order: int = 0
+
+
+class ResumeProject(SQLModel, table=True):
+    __tablename__ = "resume_project"
+
+    id: int | None = Field(default=None, primary_key=True)
+    resume_id: int = Field(foreign_key="resume.id", index=True, ondelete="CASCADE")
+    name: str
+    role: str | None = None
+    url: str | None = None
+    start_year: int | None = None
+    start_month: int | None = None
+    end_year: int | None = None
+    end_month: int | None = None
+    description: str = ""
+    display_order: int = 0
+
+
+class ResumeSkill(SQLModel, table=True):
+    __tablename__ = "resume_skill"
+    __table_args__ = (
+        UniqueConstraint("resume_id", "normalized_name", name="uq_resume_skill_name"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    resume_id: int = Field(foreign_key="resume.id", index=True, ondelete="CASCADE")
+    name: str
+    normalized_name: str
+    category: str | None = None
+    evidence: str = ""
+
+
+class ResumeCertification(SQLModel, table=True):
+    __tablename__ = "resume_certification"
+
+    id: int | None = Field(default=None, primary_key=True)
+    resume_id: int = Field(foreign_key="resume.id", index=True, ondelete="CASCADE")
+    name: str
+    issuer: str | None = None
+    issue_year: int | None = None
+    issue_month: int | None = None
+    expiry_year: int | None = None
+    expiry_month: int | None = None
+    credential_id: str | None = None
+    credential_url: str | None = None
+    display_order: int = 0
+
+
+class ResumeLanguage(SQLModel, table=True):
+    __tablename__ = "resume_language"
+    __table_args__ = (
+        UniqueConstraint("resume_id", "normalized_name", name="uq_resume_language_name"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    resume_id: int = Field(foreign_key="resume.id", index=True, ondelete="CASCADE")
+    name: str
+    normalized_name: str
+    level: str | None = None
+
+
+class ResumeAssessment(SQLModel, table=True):
+    __tablename__ = "resume_assessment"
+    __table_args__ = (
+        UniqueConstraint("resume_id", "rubric_version", name="uq_resume_assessment_rubric"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    resume_id: int = Field(foreign_key="resume.id", index=True, ondelete="CASCADE")
+    rubric_version: str = "1"
+    overall_score: int
+    parsing_score: int
+    contact_score: int
+    section_score: int
+    chronology_score: int
+    evidence_score: int
+    consistency_score: int
+    findings: list[str] = Field(default_factory=list, sa_column=Column(JSONB))
+    assessed_at: datetime = Field(default_factory=utcnow)
 
 
 class Match(SQLModel, table=True):
@@ -322,16 +488,41 @@ class LeadMatch(SQLModel, table=True):
     """Keşfedilen bir ilanın belirli CV profiliyle değerlendirmesi."""
 
     __tablename__ = "lead_match"
-    __table_args__ = (UniqueConstraint("lead_id", "profile_id", name="uq_lead_match_profile"),)
+    __table_args__ = (UniqueConstraint("lead_id", "resume_id", name="uq_lead_match_resume"),)
 
     id: int | None = Field(default=None, primary_key=True)
     lead_id: int = Field(foreign_key="job_lead.id", index=True)
     profile_id: int = Field(foreign_key="profile.id", index=True)
+    resume_id: int | None = Field(default=None, foreign_key="resume.id", index=True)
     score: int
     rationale: str
     gaps: list[str] = Field(default_factory=list, sa_column=Column(JSONB))
     model: str
     updated_at: datetime = Field(default_factory=utcnow)
+
+
+class MatchQueueItem(SQLModel, table=True):
+    """Yerel LLM tarafından sırayla işlenecek kalıcı değerlendirme işi."""
+
+    __tablename__ = "match_queue_item"
+    __table_args__ = (
+        UniqueConstraint("run_id", "lead_id", "resume_id", name="uq_match_queue_run_lead"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: int = Field(foreign_key="discovery_run.id", index=True)
+    lead_id: int = Field(foreign_key="job_lead.id", index=True)
+    profile_id: int = Field(foreign_key="profile.id", index=True)
+    resume_id: int | None = Field(default=None, foreign_key="resume.id", index=True)
+    position: int
+    status: MatchQueueStatus = Field(
+        default=MatchQueueStatus.PENDING,
+        sa_column=Column(String, nullable=False, index=True),
+    )
+    error: str | None = None
+    created_at: datetime = Field(default_factory=utcnow, index=True)
+    started_at: datetime | None = None
+    completed_at: datetime | None = None
 
 
 class UsageLog(SQLModel, table=True):

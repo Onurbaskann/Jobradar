@@ -9,8 +9,9 @@ from sqlmodel import Session
 
 from app.agents.client import AgentError
 from app.db import get_session
+from app.matching.queue import list_active_queue
 from app.matching.service import MatchInputError, list_profile_matches, score_lead
-from app.models import LeadMatch
+from app.models import LeadMatch, MatchQueueItem, MatchQueueStatus
 
 router = APIRouter(prefix="/api/jobs/leads", tags=["matching"])
 SessionDep = Annotated[Session, Depends(get_session)]
@@ -29,9 +30,26 @@ class LeadMatchView(BaseModel):
     updated_at: datetime
 
 
+class MatchQueueView(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    run_id: int
+    lead_id: int
+    position: int
+    status: MatchQueueStatus
+    created_at: datetime
+    started_at: datetime | None
+
+
 @router.get("/matches", response_model=list[LeadMatchView])
 def get_lead_matches(session: SessionDep) -> list[LeadMatch]:
     return list_profile_matches(session)
+
+
+@router.get("/match-queue", response_model=list[MatchQueueView])
+def get_match_queue(session: SessionDep) -> list[MatchQueueItem]:
+    return list_active_queue(session)
 
 
 @router.post("/{lead_id}/score", response_model=LeadMatchView)

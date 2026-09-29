@@ -9,7 +9,15 @@ from sqlmodel import Session, col, select
 from app.agents.client import AgentError, call_structured
 from app.agents.providers import describe
 from app.config import get_settings
-from app.models import JobLead, LeadMatch, Profile, utcnow
+from app.models import (
+    JobLead,
+    LeadMatch,
+    Profile,
+    Resume,
+    ResumeProcessingStatus,
+    utcnow,
+)
+from app.profile.service import build_resume_context, get_current_resume
 
 MAX_MATCH_TEXT_CHARS = 12_000
 MIN_JOB_DESCRIPTION_CHARS = 80
@@ -46,8 +54,11 @@ class AutomaticMatchSummary:
     failed: int = 0
 
 
-def build_match_prompt(profile: Profile, lead: JobLead) -> str:
-    cv_text = profile.cv_text.strip()[:MAX_MATCH_TEXT_CHARS]
+def build_match_prompt(
+    lead: JobLead,
+    resume_context: str,
+) -> str:
+    cv_text = resume_context.strip()[:MAX_MATCH_TEXT_CHARS]
     description = lead.description_md.strip()[:MAX_MATCH_TEXT_CHARS]
     return f"""ADAY CV'Sİ
 ---
@@ -66,10 +77,15 @@ Açıklama:
 Bu adayın bu ilana uyumunu değerlendir."""
 
 
-def score_lead(session: Session, lead_id: int) -> LeadMatch:
+def score_lead(session: Session, lead_id: int, resume_id: int | None = None) -> LeadMatch:
     profile = session.exec(select(Profile).order_by(Profile.id)).first()
-    if profile is None or not profile.cv_text.strip():
+    resume = session.get(Resume, resume_id) if resume_id is not None else None
+    if profile is not None and resume is None:
+        resume = get_current_resume(session, profile.id)
+    if profile is None or resume is None or not resume.extracted_text.strip():
         raise MatchInputError("Önce CV profilini yüklemelisin")
+    if resume.status != ResumeProcessingStatus.COMPLETED:
+        raise MatchInputError("CV değerlendirmesi tamamlanmadan ilan puanlanamaz")
 
     lead = session.get(JobLead, lead_id)
     if lead is None:
@@ -82,7 +98,7 @@ def score_lead(session: Session, lead_id: int) -> LeadMatch:
         agent="score_match",
         model=settings.model_score,
         system=MATCH_SYSTEM_PROMPT,
-        user_content=build_match_prompt(profile, lead),
+        user_content=build_match_prompt(lead, build_resume_context(session, resume)),
         output_model=LeadScoreOutput,
         max_tokens=900,
         effort="low",
@@ -92,13 +108,14 @@ def score_lead(session: Session, lead_id: int) -> LeadMatch:
     match = session.exec(
         select(LeadMatch).where(
             LeadMatch.lead_id == lead.id,
-            LeadMatch.profile_id == profile.id,
+            LeadMatch.resume_id == resume.id,
         )
     ).first()
     if match is None:
         match = LeadMatch(
             lead_id=lead.id,
             profile_id=profile.id,
+            resume_id=resume.id,
             score=result.data.score,
             rationale=result.data.rationale.strip(),
             model=describe(settings.model_score),
@@ -130,7 +147,14 @@ def score_prioritized_leads(
     if limit <= 0:
         return AutomaticMatchSummary()
     profile = session.exec(select(Profile).order_by(Profile.id)).first()
-    if profile is None or profile.id is None or not profile.cv_text.strip():
+    resume = get_current_resume(session, profile.id) if profile and profile.id else None
+    if (
+        profile is None
+        or profile.id is None
+        or resume is None
+        or resume.status != ResumeProcessingStatus.COMPLETED
+        or not resume.extracted_text.strip()
+    ):
         return AutomaticMatchSummary()
 
     candidates = leads[:limit]
@@ -140,7 +164,7 @@ def score_prioritized_leads(
         matched_lead_ids = set(
             session.exec(
                 select(LeadMatch.lead_id).where(
-                    LeadMatch.profile_id == profile.id,
+                    LeadMatch.resume_id == resume.id,
                     col(LeadMatch.lead_id).in_(candidate_ids),
                 )
             ).all()
@@ -155,7 +179,7 @@ def score_prioritized_leads(
             skipped += 1
             continue
         try:
-            score_lead(session, lead.id)
+            score_lead(session, lead.id, resume.id)
             scored += 1
         except MatchInputError:
             skipped += 1
@@ -173,12 +197,18 @@ def score_prioritized_leads(
 
 def list_profile_matches(session: Session) -> list[LeadMatch]:
     profile = session.exec(select(Profile).order_by(Profile.id)).first()
-    if profile is None or not profile.cv_text.strip():
+    resume = get_current_resume(session, profile.id) if profile and profile.id else None
+    if (
+        profile is None
+        or resume is None
+        or resume.status != ResumeProcessingStatus.COMPLETED
+        or not resume.extracted_text.strip()
+    ):
         return []
     return list(
         session.exec(
             select(LeadMatch)
-            .where(LeadMatch.profile_id == profile.id)
+            .where(LeadMatch.resume_id == resume.id)
             .order_by(LeadMatch.updated_at.desc())
         ).all()
     )

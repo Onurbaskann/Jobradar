@@ -1,12 +1,14 @@
 import { useMemo, useState } from "react";
 
-import type { JobLead, JobLeadStatus, LeadMatch } from "../../shared/api/types";
+import type { JobLead, JobLeadStatus, LeadMatch, MatchQueueItem } from "../../shared/api/types";
 import { Button } from "../../shared/ui/Button";
 import { StatusPill } from "../../shared/ui/StatusPill";
+import { sortJobLeadsForReview } from "./sortJobLeads";
 
 interface JobInboxProps {
   leads: JobLead[];
   matches: LeadMatch[];
+  matchQueue: MatchQueueItem[];
   preferredLocation: string;
   loading: boolean;
   profileReady: boolean;
@@ -28,6 +30,7 @@ const filters: Array<{ value: "all" | JobLeadStatus; label: string }> = [
 export function JobInbox({
   leads,
   matches,
+  matchQueue,
   preferredLocation,
   loading,
   profileReady,
@@ -39,9 +42,17 @@ export function JobInbox({
   onStatusChange,
 }: JobInboxProps) {
   const [filter, setFilter] = useState<"all" | JobLeadStatus>("new");
+  const orderedLeads = useMemo(
+    () => matchQueue.length > 0
+      ? leads
+      : sortJobLeadsForReview(leads, matches, preferredLocation),
+    [leads, matchQueue.length, matches, preferredLocation],
+  );
   const visible = useMemo(
-    () => (filter === "all" ? leads : leads.filter((lead) => lead.status === filter)),
-    [filter, leads],
+    () => filter === "all"
+      ? orderedLeads
+      : orderedLeads.filter((lead) => lead.status === filter),
+    [filter, orderedLeads],
   );
 
   return (
@@ -60,6 +71,14 @@ export function JobInbox({
         </div>
       </div>
 
+      {matchQueue.length > 0 && (
+        <div className="queue-summary" aria-live="polite">
+          <span className="queue-pulse" aria-hidden="true" />
+          <strong>Yerel Qwen değerlendiriyor</strong>
+          <span>{matchQueue.filter((item) => item.status === "processing").length} aktif, {matchQueue.filter((item) => item.status === "pending").length} sırada</span>
+        </div>
+      )}
+
       {loading ? <div className="empty-state">İlan havuzu yükleniyor…</div> : visible.length === 0 ? (
         <div className="empty-state"><strong>Bu görünümde ilan yok.</strong><span>Keşif taraması başlat veya başka bir filtre seç.</span></div>
       ) : (
@@ -68,6 +87,7 @@ export function JobInbox({
             <JobRow
               lead={lead}
               match={matches.find((item) => item.lead_id === lead.id)}
+              queueItem={matchQueue.find((item) => item.lead_id === lead.id)}
               profileReady={profileReady}
               scoring={scoringLeadId === lead.id}
               scoreBusy={scoringLeadId !== null}
@@ -87,9 +107,10 @@ export function JobInbox({
   );
 }
 
-function JobRow({ lead, match, profileReady, scoring, scoreBusy, applicationReady, preparingMatchId, onScore, onPrepareApplication, onStatusChange }: {
+function JobRow({ lead, match, queueItem, profileReady, scoring, scoreBusy, applicationReady, preparingMatchId, onScore, onPrepareApplication, onStatusChange }: {
   lead: JobLead;
   match?: LeadMatch;
+  queueItem?: MatchQueueItem;
   profileReady: boolean;
   scoring: boolean;
   scoreBusy: boolean;
@@ -103,7 +124,11 @@ function JobRow({ lead, match, profileReady, scoring, scoreBusy, applicationRead
     <article className="job-row">
       <div className="company-token" aria-hidden="true">{initials(lead.company_name)}</div>
       <div className="job-main">
-        <div className="job-title"><h3>{lead.title}</h3>{lead.remote_type === "remote" && <StatusPill tone="info">Uzaktan</StatusPill>}</div>
+        <div className="job-title">
+          <h3>{lead.title}</h3>
+          {lead.remote_type === "remote" && <StatusPill tone="info">Uzaktan</StatusPill>}
+          {queueItem && <StatusPill tone="info">{queueItem.status === "processing" ? "Değerlendiriliyor" : "Sırada"}</StatusPill>}
+        </div>
         <p><strong>{lead.company_name}</strong><span>·</span>{lead.location || "Konum belirtilmemiş"}</p>
         <div className="job-meta"><span>{lead.sources.join(" + ")}</span><span>{formatDate(lead.posted_at ?? lead.first_seen_at)}</span></div>
       </div>
@@ -111,11 +136,13 @@ function JobRow({ lead, match, profileReady, scoring, scoreBusy, applicationRead
         {lead.apply_url && <a className="text-link" href={lead.apply_url} target="_blank" rel="noreferrer">İlanı aç ↗</a>}
         <Button
           variant="quiet"
-          disabled={!profileReady || scoreBusy}
+          disabled={!profileReady || scoreBusy || queueItem !== undefined}
           onClick={() => void onScore(lead.id)}
           title={profileReady ? undefined : "Önce CV profilini yükle"}
         >
-          {scoring
+          {queueItem
+            ? queueItem.status === "processing" ? "Değerlendiriliyor…" : "Değerlendirme sırasında"
+            : scoring
             ? "Değerlendiriliyor…"
             : !profileReady
               ? "Önce CV yükle"

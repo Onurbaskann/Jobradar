@@ -9,7 +9,6 @@ from pydantic import BaseModel
 
 from app.agents.client import AgentError, call_structured
 from app.agents.providers import (
-    OLLAMA_NUM_CTX,
     ProviderError,
     call_ollama,
     describe,
@@ -42,8 +41,8 @@ def test_describe_marks_local_models() -> None:
 
 
 @respx.mock
-def test_ollama_call_sends_schema_and_context_window() -> None:
-    """num_ctx açıkça verilmezse Ollama 4096'ya düşer ve sayfanın sonu sessizce kırpılır."""
+def test_ollama_call_sends_schema_and_right_sized_context_window() -> None:
+    """Kısa çağrı gereksiz 32K pencere ayırmaz; çıktı bütçesi yine korunur."""
     route = respx.post("http://127.0.0.1:11434/api/chat").mock(
         return_value=httpx.Response(
             200,
@@ -61,6 +60,7 @@ def test_ollama_call_sends_schema_and_context_window() -> None:
         user_content="sayfa metni",
         output_model=Answer,
         tools=None,
+        max_tokens=2600,
     )
 
     assert response.data.ok is True
@@ -68,7 +68,8 @@ def test_ollama_call_sends_schema_and_context_window() -> None:
     assert response.output_tokens == 40
 
     body = route.calls[0].request.content.decode()
-    assert '"num_ctx":32768' in body.replace(" ", "") or f'"num_ctx": {OLLAMA_NUM_CTX}' in body
+    assert '"num_ctx":4096' in body.replace(" ", "")
+    assert '"num_predict":2600' in body.replace(" ", "")
     assert '"model":"qwen3:8b"' in body.replace(" ", ""), "ollama: öneki çıkarılmalı"
     assert "properties" in body, "şema gönderilmeli — serbest metin ayrıştırmıyoruz"
 

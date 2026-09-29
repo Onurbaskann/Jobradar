@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -14,10 +16,26 @@ from app.applications.api import router as applications_router
 from app.db import get_session
 from app.discovery.api import router as discovery_router
 from app.matching.api import router as matching_router
+from app.matching.queue import recover_interrupted_work, run_matching_worker
 from app.models import Company, CompanyStatus, JobPosting
 from app.profile.api import router as profile_router
+from app.profile.processing import recover_interrupted_resumes
 
-api = FastAPI(title="jobradar", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    recover_interrupted_resumes()
+    recover_interrupted_work()
+    worker = asyncio.create_task(run_matching_worker())
+    try:
+        yield
+    finally:
+        worker.cancel()
+        with suppress(asyncio.CancelledError):
+            await worker
+
+
+api = FastAPI(title="jobradar", version="0.1.0", lifespan=lifespan)
 app = api
 
 api.add_middleware(

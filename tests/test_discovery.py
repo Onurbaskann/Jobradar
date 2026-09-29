@@ -22,7 +22,7 @@ from app.discovery.sources import (
     map_jobspy_row,
     map_turkiye_web_result,
 )
-from app.matching.service import AutomaticMatchSummary
+from app.matching.queue import QueueSummary
 from app.models import (
     DiscoveryRun,
     DiscoveryRunStatus,
@@ -204,27 +204,29 @@ async def test_completed_discovery_scores_location_first_and_forwards_reevaluati
 
     calls = []
 
-    def fake_score(_session, leads, *, limit, reevaluate_existing):
+    def fake_enqueue(_session, *, run_id, leads, limit, reevaluate_existing):
         calls.append(
             {
+                "run_id": run_id,
                 "lead_ids": [lead.id for lead in leads],
                 "limit": limit,
                 "reevaluate_existing": reevaluate_existing,
             }
         )
-        return AutomaticMatchSummary(considered=2, scored=2)
+        return QueueSummary(considered=2, queued=2)
 
     monkeypatch.setattr("app.discovery.service.Session", Session)
     monkeypatch.setattr(
         "app.discovery.service._build_sources",
         lambda _names, _session: ([Source()], []),
     )
-    monkeypatch.setattr("app.discovery.service.score_prioritized_leads", fake_score)
+    monkeypatch.setattr("app.discovery.service.enqueue_prioritized_leads", fake_enqueue)
 
     await _execute_discovery_run(1, reevaluate_existing=True)
 
     assert calls == [
         {
+            "run_id": 1,
             "lead_ids": [11, 10],
             "limit": 20,
             "reevaluate_existing": True,
@@ -232,11 +234,10 @@ async def test_completed_discovery_scores_location_first_and_forwards_reevaluati
     ]
     assert run.status is DiscoveryRunStatus.COMPLETED
     assert run.source_results["automatic_matching"] == {
-        "status": "completed",
+        "status": "queued",
         "considered": 2,
-        "scored": 2,
+        "queued": 2,
         "skipped": 0,
-        "failed": 0,
     }
 
 

@@ -142,6 +142,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/profile/cv": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Download Candidate Cv */
+        get: operations["download_candidate_cv_api_profile_cv_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/jobs/leads/matches": {
         parameters: {
             query?: never;
@@ -151,6 +168,23 @@ export interface paths {
         };
         /** Get Lead Matches */
         get: operations["get_lead_matches_api_jobs_leads_matches_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/jobs/leads/match-queue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Match Queue */
+        get: operations["get_match_queue_api_jobs_leads_match_queue_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -430,6 +464,21 @@ export interface components {
             filename: string;
             /** Text Length */
             text_length: number;
+            /** Resume Id */
+            resume_id: number;
+            /** Version */
+            version: number;
+            processing_status: components["schemas"]["ResumeProcessingStatus"];
+            /** Processing Error */
+            processing_error: string | null;
+            /** Ats Score */
+            ats_score: number | null;
+            /** Ats Metrics */
+            ats_metrics: {
+                [key: string]: number;
+            };
+            /** Ats Findings */
+            ats_findings: string[];
             /**
              * Updated At
              * Format: date-time
@@ -515,6 +564,30 @@ export interface components {
              */
             last_seen_at: string;
         };
+        /**
+         * MatchQueueStatus
+         * @enum {string}
+         */
+        MatchQueueStatus: "pending" | "processing" | "completed" | "skipped" | "failed";
+        /** MatchQueueView */
+        MatchQueueView: {
+            /** Id */
+            id: number;
+            /** Run Id */
+            run_id: number;
+            /** Lead Id */
+            lead_id: number;
+            /** Position */
+            position: number;
+            status: components["schemas"]["MatchQueueStatus"];
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Started At */
+            started_at: string | null;
+        };
         /** ProfileCreate */
         ProfileCreate: {
             /** Name */
@@ -597,6 +670,11 @@ export interface components {
          * @enum {string}
          */
         RemoteType: "onsite" | "hybrid" | "remote" | "unknown";
+        /**
+         * ResumeProcessingStatus
+         * @enum {string}
+         */
+        ResumeProcessingStatus: "pending" | "processing" | "completed" | "failed";
         /** RunCreate */
         RunCreate: {
             /** Profile Id */
@@ -960,6 +1038,24 @@ export interface operations {
             };
         };
     };
+    download_candidate_cv_api_profile_cv_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
     get_lead_matches_api_jobs_leads_matches_get: {
         parameters: {
             query?: never;
@@ -976,6 +1072,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LeadMatchView"][];
+                };
+            };
+        };
+    };
+    get_match_queue_api_jobs_leads_match_queue_get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MatchQueueView"][];
                 };
             };
         };
