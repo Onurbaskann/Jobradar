@@ -87,6 +87,7 @@ def call_structured[T: BaseModel](
                 user_content=user_content,
                 output_model=output_model,
                 tools=tools,
+                max_tokens=max_tokens,
             )
         else:
             response = call_anthropic(

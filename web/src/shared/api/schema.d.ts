@@ -464,6 +464,21 @@ export interface components {
             filename: string;
             /** Text Length */
             text_length: number;
+            /** Resume Id */
+            resume_id: number;
+            /** Version */
+            version: number;
+            processing_status: components["schemas"]["ResumeProcessingStatus"];
+            /** Processing Error */
+            processing_error: string | null;
+            /** Ats Score */
+            ats_score: number | null;
+            /** Ats Metrics */
+            ats_metrics: {
+                [key: string]: number;
+            };
+            /** Ats Findings */
+            ats_findings: string[];
             /**
              * Updated At
              * Format: date-time
@@ -655,6 +670,11 @@ export interface components {
          * @enum {string}
          */
         RemoteType: "onsite" | "hybrid" | "remote" | "unknown";
+        /**
+         * ResumeProcessingStatus
+         * @enum {string}
+         */
+        ResumeProcessingStatus: "pending" | "processing" | "completed" | "failed";
         /** RunCreate */
         RunCreate: {
             /** Profile Id */

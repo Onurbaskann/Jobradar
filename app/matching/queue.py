@@ -18,8 +18,11 @@ from app.models import (
     MatchQueueItem,
     MatchQueueStatus,
     Profile,
+    ResumeProcessingStatus,
     utcnow,
 )
+from app.profile.processing import process_next_resume
+from app.profile.service import get_current_resume
 
 log = logging.getLogger(__name__)
 ACTIVE_QUEUE_STATUSES = (MatchQueueStatus.PENDING, MatchQueueStatus.PROCESSING)
@@ -41,7 +44,14 @@ def enqueue_prioritized_leads(
     reevaluate_existing: bool,
 ) -> QueueSummary:
     profile = session.exec(select(Profile).order_by(Profile.id)).first()
-    if profile is None or profile.id is None or not profile.cv_text.strip() or limit <= 0:
+    resume = get_current_resume(session, profile.id) if profile and profile.id else None
+    if (
+        profile is None
+        or profile.id is None
+        or resume is None
+        or resume.status != ResumeProcessingStatus.COMPLETED
+        or limit <= 0
+    ):
         return QueueSummary()
 
     candidates = leads[:limit]
@@ -51,7 +61,7 @@ def enqueue_prioritized_leads(
         matched_ids = set(
             session.exec(
                 select(LeadMatch.lead_id).where(
-                    LeadMatch.profile_id == profile.id,
+                    LeadMatch.resume_id == resume.id,
                     col(LeadMatch.lead_id).in_(lead_ids),
                 )
             ).all()
@@ -59,7 +69,7 @@ def enqueue_prioritized_leads(
     active_ids = set(
         session.exec(
             select(MatchQueueItem.lead_id).where(
-                MatchQueueItem.profile_id == profile.id,
+                MatchQueueItem.resume_id == resume.id,
                 col(MatchQueueItem.status).in_(ACTIVE_QUEUE_STATUSES),
             )
         ).all()
@@ -75,6 +85,7 @@ def enqueue_prioritized_leads(
                 run_id=run_id,
                 lead_id=lead.id,
                 profile_id=profile.id,
+                resume_id=resume.id,
                 position=position,
             )
         )
@@ -133,7 +144,7 @@ def process_next_queued_match() -> bool:
         run_id = item.run_id
 
         try:
-            score_lead(session, item.lead_id)
+            score_lead(session, item.lead_id, item.resume_id)
             status = MatchQueueStatus.COMPLETED
             error = None
         except (MatchInputError, LookupError) as exc:
@@ -191,5 +202,7 @@ async def run_matching_worker() -> None:
         if interactive_model_call_pending():
             await asyncio.sleep(0.25)
             continue
-        processed = await asyncio.to_thread(process_next_queued_match)
+        processed = await asyncio.to_thread(process_next_resume)
+        if not processed:
+            processed = await asyncio.to_thread(process_next_queued_match)
         await asyncio.sleep(0.25 if processed else 1.5)

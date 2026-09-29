@@ -14,7 +14,7 @@ from app.matching.service import (
     score_lead,
     score_prioritized_leads,
 )
-from app.models import JobLead, LeadMatch, Profile
+from app.models import JobLead, LeadMatch, Profile, Resume, ResumeProcessingStatus
 
 
 class _Result:
@@ -68,11 +68,33 @@ def _lead() -> JobLead:
     )
 
 
+def _resume() -> Resume:
+    return Resume(
+        id=6,
+        profile_id=1,
+        version=1,
+        original_filename="cv.txt",
+        file_path="data/cv/cv.txt",
+        mime_type="text/plain",
+        extracted_text="Python ve FastAPI deneyimi",
+        status=ResumeProcessingStatus.COMPLETED,
+    )
+
+
+@pytest.fixture(autouse=True)
+def current_resume(monkeypatch):
+    monkeypatch.setattr("app.matching.service.get_current_resume", lambda *_args: _resume())
+    monkeypatch.setattr(
+        "app.matching.service.build_resume_context",
+        lambda _session, resume: resume.extracted_text,
+    )
+
+
 def test_build_match_prompt_limits_untrusted_text() -> None:
     profile = _profile()
     profile.cv_text = "x" * (MAX_MATCH_TEXT_CHARS + 20)
 
-    prompt = build_match_prompt(profile, _lead())
+    prompt = build_match_prompt(_lead(), profile.cv_text)
 
     assert "ADAY CV'Sİ" in prompt
     assert "Backend Developer" in prompt
@@ -92,6 +114,7 @@ def test_scores_and_persists_a_lead(monkeypatch) -> None:
     assert match.id == 9
     assert match.lead_id == 2
     assert match.profile_id == 1
+    assert match.resume_id == 6
     assert match.score == 78
     assert match.gaps == ["Docker"]
     assert match.model == "yerel/qwen3:8b"
@@ -103,6 +126,7 @@ def test_updates_existing_score(monkeypatch) -> None:
         id=4,
         lead_id=2,
         profile_id=1,
+        resume_id=6,
         score=40,
         rationale="Eski sonuç",
         model="yerel/qwen3:8b",
@@ -150,7 +174,7 @@ def test_prioritized_matching_skips_existing_and_isolates_bad_leads(monkeypatch)
 
     scored_ids = []
 
-    def fake_score(_session, lead_id):
+    def fake_score(_session, lead_id, _resume_id):
         if lead_id == 3:
             raise AgentError("model geçici olarak kullanılamıyor")
         scored_ids.append(lead_id)
@@ -182,7 +206,7 @@ def test_prioritized_matching_reevaluates_existing_leads(monkeypatch) -> None:
     scored_ids = []
     monkeypatch.setattr(
         "app.matching.service.score_lead",
-        lambda _session, lead_id: scored_ids.append(lead_id),
+        lambda _session, lead_id, _resume_id: scored_ids.append(lead_id),
     )
 
     summary = score_prioritized_leads(  # type: ignore[arg-type]
@@ -211,7 +235,7 @@ def test_prioritized_matching_does_not_backfill_beyond_limit(monkeypatch) -> Non
     scored_ids = []
     monkeypatch.setattr(
         "app.matching.service.score_lead",
-        lambda _session, lead_id: scored_ids.append(lead_id),
+        lambda _session, lead_id, _resume_id: scored_ids.append(lead_id),
     )
 
     summary = score_prioritized_leads(  # type: ignore[arg-type]

@@ -28,10 +28,10 @@ log = logging.getLogger(__name__)
 
 OLLAMA_PREFIX = "ollama:"
 
-#: Yerel modelin bağlam penceresi. Ollama varsayılanı 4096'dır ve budanmış bir
-#: kariyer sayfası bunu rahatça aşar — açıkça vermezsek sayfanın sonu sessizce
-#: kırpılır ve ilanlar kaybolur.
-OLLAMA_NUM_CTX = 32768
+#: Büyük kariyer sayfaları için izin verilen üst sınır. Kısa isteklerde aynı
+#: pencereyi ayırmak CPU/RAM kullanımını gereksiz artırdığı için çağrı başına
+#: yeterli en küçük pencere seçilir.
+OLLAMA_MAX_NUM_CTX = 32768
 
 #: `effort` / adaptive thinking yalnızca yeni nesil Anthropic modellerinde var.
 _EFFORT_CAPABLE_PREFIXES = (
@@ -70,6 +70,13 @@ def supports_effort(model: str) -> bool:
 def describe(model: str) -> str:
     """Log ve maliyet tablosunda okunur isim."""
     return f"yerel/{model.removeprefix(OLLAMA_PREFIX)}" if is_local(model) else model
+
+
+def _context_window(system: str, user_content: str, max_tokens: int) -> int:
+    estimated_input_tokens = (len(system) + len(user_content)) // 3 + 1
+    needed = estimated_input_tokens + max_tokens
+    window = max(4096, 1 << (needed - 1).bit_length())
+    return min(window, OLLAMA_MAX_NUM_CTX)
 
 
 # --------------------------------------------------------------------- Anthropic
@@ -140,6 +147,7 @@ def call_ollama[T: BaseModel](
     user_content: str,
     output_model: type[T],
     tools: list[dict[str, Any]] | None,
+    max_tokens: int = 16000,
 ) -> ProviderResponse:
     if tools:
         # Sağlayıcıya özel araçlar yerel Ollama protokolüne geçirilemez.
@@ -155,7 +163,11 @@ def call_ollama[T: BaseModel](
         "format": output_model.model_json_schema(),
         "stream": False,
         "think": False,
-        "options": {"num_ctx": OLLAMA_NUM_CTX, "temperature": 0},
+        "options": {
+            "num_ctx": _context_window(system, user_content, max_tokens),
+            "num_predict": max_tokens,
+            "temperature": 0,
+        },
     }
 
     try:

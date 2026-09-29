@@ -142,6 +142,16 @@ main { min-width: 0; padding: 0 44px 64px; }
 .current-cv small { color: var(--muted); font-size: 10px; font-weight: 700; }
 .current-cv strong { overflow: hidden; color: #324861; font-size: 12px; text-overflow: ellipsis; white-space: nowrap; }
 .current-cv .button { flex: 0 0 auto; text-decoration: none; }
+.ats-details { display: grid; gap: 11px; padding: 14px; border: 1px solid #cfe1d9; border-radius: 9px; background: #f3faf6; }
+.ats-details > div:first-child { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.ats-details > div:first-child strong { color: #274b3e; font-size: 12px; }
+.ats-details > div:first-child span { color: var(--green); font: 700 20px/1 "Bahnschrift", sans-serif; }
+.ats-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 7px; }
+.ats-metrics span { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 7px 8px; border: 1px solid #dce9e2; border-radius: 6px; background: #fff; }
+.ats-metrics small { color: var(--muted); font-size: 9px; }
+.ats-metrics strong { color: #274b3e; font-size: 11px; }
+.ats-details ul { margin: 0; padding-left: 18px; color: #526b60; font-size: 10px; line-height: 1.5; }
+.cv-processing-error { grid-column: 1 / -1; margin: 0 !important; padding: 10px 12px; color: #8c3017 !important; border: 1px solid #ffbba7; border-radius: 8px; background: #fff1ec; }
 .cv-upload strong { font-size: 17px; }
 .cv-upload p { color: var(--muted); margin: 6px 0 0; font-size: 13px; line-height: 1.5; }
 .cv-upload label { display: grid; gap: 7px; color: #43556b; font-size: 11px; font-weight: 800; }
@@ -252,6 +262,7 @@ main { min-width: 0; padding: 0 44px 64px; }
   .profile-form .button { justify-self: stretch; }
   .cv-panel, .cv-upload { grid-template-columns: 1fr; }
   .cv-upload > div { grid-column: auto; }
+  .ats-metrics { grid-template-columns: 1fr 1fr; }
   .cv-upload .button { width: 100%; }
   .cv-signal { min-height: 190px; border-left: 0; border-top: 1px solid var(--line); }
   .source-lane { padding-inline: 14px; }

@@ -23,6 +23,8 @@ from app.models import (
     JobLeadStatus,
     LeadMatch,
     Profile,
+    Resume,
+    ResumeProcessingStatus,
 )
 
 
@@ -32,6 +34,9 @@ class _Result:
 
     def first(self):
         return self.value
+
+    def all(self):
+        return []
 
 
 class _Session:
@@ -43,6 +48,16 @@ class _Session:
         score: int = 91,
     ):
         self.profile = Profile(id=1, name="Onur", cv_text="C# ve .NET deneyimi")
+        self.resume = Resume(
+            id=4,
+            profile_id=1,
+            version=1,
+            original_filename="cv.pdf",
+            file_path="data/cv/cv.pdf",
+            mime_type="application/pdf",
+            extracted_text="C# ve .NET deneyimi",
+            status=ResumeProcessingStatus.COMPLETED,
+        )
         self.lead = JobLead(
             id=2,
             fingerprint="lead-2",
@@ -56,6 +71,7 @@ class _Session:
             id=3,
             lead_id=2,
             profile_id=1,
+            resume_id=4,
             score=score,
             rationale="Güçlü teknik uyum",
             gaps=["Azure"],
@@ -71,6 +87,7 @@ class _Session:
             LeadMatch: self.match,
             JobLead: self.lead,
             Profile: self.profile,
+            Resume: self.resume,
             Application: self.application,
         }
         value = values[model]
@@ -118,7 +135,12 @@ def _application() -> Application:
 def test_application_prompt_contains_cv_job_and_match_evidence() -> None:
     session = _Session()
 
-    prompt = build_application_prompt(session.profile, session.lead, session.match)
+    prompt = build_application_prompt(
+        session.profile,
+        session.lead,
+        session.match,
+        session.resume.extracted_text,
+    )
 
     assert "C# ve .NET deneyimi" in prompt
     assert "Backend Developer" in prompt
@@ -227,7 +249,7 @@ def test_creates_gmail_draft_only_after_approval(tmp_path) -> None:
     session = _Session(application=application)
     cv_path = tmp_path / "cv.pdf"
     cv_path.write_bytes(b"pdf")
-    session.profile.cv_file_path = str(cv_path)
+    session.resume.file_path = str(cv_path)
 
     class Writer:
         def upsert_draft(self, **kwargs):

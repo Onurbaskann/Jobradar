@@ -19,10 +19,12 @@ from app.matching.api import router as matching_router
 from app.matching.queue import recover_interrupted_work, run_matching_worker
 from app.models import Company, CompanyStatus, JobPosting
 from app.profile.api import router as profile_router
+from app.profile.processing import recover_interrupted_resumes
 
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
+    recover_interrupted_resumes()
     recover_interrupted_work()
     worker = asyncio.create_task(run_matching_worker())
     try:

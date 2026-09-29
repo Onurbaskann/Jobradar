@@ -7,6 +7,8 @@ from app.models import (
     MatchQueueItem,
     MatchQueueStatus,
     Profile,
+    Resume,
+    ResumeProcessingStatus,
 )
 
 
@@ -41,6 +43,18 @@ def test_enqueue_uses_first_candidates_and_skips_existing_or_active() -> None:
             self.results = iter(
                 [
                     Result(Profile(id=5, name="Onur", cv_text="Backend CV")),
+                    Result(
+                        Resume(
+                            id=8,
+                            profile_id=5,
+                            version=1,
+                            original_filename="cv.txt",
+                            file_path="cv.txt",
+                            mime_type="text/plain",
+                            extracted_text="Backend CV",
+                            status=ResumeProcessingStatus.COMPLETED,
+                        )
+                    ),
                     Result([1]),
                     Result([2]),
                 ]
@@ -67,6 +81,7 @@ def test_enqueue_uses_first_candidates_and_skips_existing_or_active() -> None:
 
     assert summary == QueueSummary(considered=3, queued=1, skipped=2)
     assert [(item.lead_id, item.position) for item in session.added] == [(3, 3)]
+    assert session.added[0].resume_id == 8
 
 
 def test_run_progress_reflects_queue_state() -> None:

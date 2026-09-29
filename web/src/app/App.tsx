@@ -88,26 +88,29 @@ export function App() {
 
   useEffect(() => {
     const runActive = run && ["pending", "running"].includes(run.status);
-    if (!runActive && matchQueue.length === 0) return;
+    const profileProcessing = candidateProfile && ["pending", "processing"].includes(candidateProfile.processing_status);
+    if (!runActive && matchQueue.length === 0 && !profileProcessing) return;
     const timer = window.setTimeout(async () => {
       try {
         const selectedProfile = profiles.find((profile) => profile.id === selectedProfileId);
-        const [nextRun, nextLeads, nextMatches, nextQueue] = await Promise.all([
+        const [nextRun, nextLeads, nextMatches, nextQueue, nextCandidateProfile] = await Promise.all([
           run ? api.run(run.id) : api.latestRun(selectedProfileId ?? undefined),
           api.leads(selectedProfile?.location),
           api.leadMatches(),
           api.matchQueue(),
+          api.candidateProfile(),
         ]);
         setRun(nextRun);
         setLeads(nextLeads);
         setMatches(nextMatches);
         setMatchQueue(nextQueue);
+        setCandidateProfile(nextCandidateProfile);
       } catch (cause) {
         setError(messageOf(cause));
       }
     }, 1600);
     return () => window.clearTimeout(timer);
-  }, [matchQueue.length, profiles, run, selectedProfileId]);
+  }, [candidateProfile, matchQueue.length, profiles, run, selectedProfileId]);
 
   async function createProfile(payload: ProfileCreate) {
     try {
@@ -321,7 +324,7 @@ export function App() {
             profiles.find((profile) => profile.id === selectedProfileId)?.location ?? "Türkiye"
           }
           loading={loading}
-          profileReady={candidateProfile !== null}
+          profileReady={candidateProfile?.processing_status === "completed"}
           scoringLeadId={scoringLeadId}
           applicationMatchIds={applications.flatMap((item) =>
             item.lead_match_id === null ? [] : [item.lead_match_id],
